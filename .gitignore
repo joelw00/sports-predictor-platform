@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+ENV/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Node
+node_modules/
+dist/
+.vite/
+*.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Data / models / artifacts
+data/raw/
+data/processed/
+data/interim/
+data/external/
+models/artifacts/
+*.pkl
+*.joblib
+*.parquet
+*.db
+*.sqlite
+*.sqlite3
+
+# Editors
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Misc
+.ipynb_checkpoints/
+logs/
