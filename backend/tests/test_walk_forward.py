@@ -67,6 +67,55 @@ def test_walk_forward_roi_is_not_inflated_vs_pretrained(db_session):
     )
 
 
+def test_walk_forward_handles_too_few_matches_without_indexerror(db_session):
+    """With fewer finished matches than the first test fold requires, the
+    backtester must still return a well-formed (empty) result rather than
+    crashing with an IndexError when it computes the fallback start_date.
+    """
+    # Seed a tiny universe: only 2 finished matches — below min_train_folds=2
+    # * fold_size=1, so boundaries[2][0] = 2 which is out of range.
+    from datetime import UTC, datetime, timedelta
+
+    from app.db import models as m
+
+    sport = m.Sport(code="football", name="Football")
+    db_session.add(sport)
+    db_session.flush()
+    comp = m.Competition(sport_id=sport.id, code="TEST", name="Test League", country="XX")
+    db_session.add(comp)
+    db_session.flush()
+    home = m.Team(competition_id=comp.id, name="Home FC", country="XX")
+    away = m.Team(competition_id=comp.id, name="Away FC", country="XX")
+    db_session.add_all([home, away])
+    db_session.flush()
+    base = datetime(2024, 1, 1, tzinfo=UTC)
+    for i in range(2):
+        db_session.add(
+            m.Match(
+                sport_id=sport.id,
+                competition_id=comp.id,
+                home_team_id=home.id,
+                away_team_id=away.id,
+                kickoff=base + timedelta(days=i),
+                status="finished",
+                home_score=1,
+                away_score=0,
+                season="2024",
+            )
+        )
+    db_session.commit()
+
+    wf = WalkForwardBacktester(
+        n_folds=6,
+        min_train_folds=2,
+        engine=ValueBetEngine(min_edge=0.03, min_confidence=0.0),
+    )
+    result = wf.run(db_session, sport_code="football", market="1x2", label="t-tiny")
+    # No crash, empty bet log, sane start/end dates.
+    assert result.n_bets == 0
+    assert result.start_date <= result.end_date
+
+
 def test_calibration_metrics_roundtrip():
     probs = np.array(
         [

@@ -233,12 +233,20 @@ class WalkForwardBacktester:
             },
         }
 
+        first_test_idx = boundaries[self.min_train_folds][0]
+        if finished and first_test_idx < len(finished):
+            resolved_start = finished[first_test_idx].kickoff
+        elif finished:
+            # Too few matches to reach the first test fold — fall back to the earliest.
+            resolved_start = finished[0].kickoff
+        else:
+            resolved_start = datetime.now(UTC)
+
         return BacktestResult(
             label=label,
             sport_code=sport_code,
             market=market,
-            start_date=start_date
-            or (finished[boundaries[self.min_train_folds][0]].kickoff if finished else datetime.now(UTC)),
+            start_date=start_date or resolved_start,
             end_date=end_date
             or (finished[-1].kickoff if finished else datetime.now(UTC)),
             strategy=self.strategy,
