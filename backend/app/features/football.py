@@ -85,9 +85,7 @@ class FootballFeatureBuilder:
     # Public API
     # ------------------------------------------------------------------
 
-    def build_for_matches(
-        self, db: Session, matches: Iterable[m.Match]
-    ) -> list[MatchFeatures]:
+    def build_for_matches(self, db: Session, matches: Iterable[m.Match]) -> list[MatchFeatures]:
         chronological = sorted(matches, key=lambda x: x.kickoff)
         features: list[MatchFeatures] = []
         for match in chronological:

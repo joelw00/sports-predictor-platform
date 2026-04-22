@@ -87,18 +87,13 @@ class PredictionService:
                 stats.predictions_upserted += 1
 
             # Value bets
-            odds_rows = (
-                db.query(m.OddsSnapshot)
-                .filter(m.OddsSnapshot.match_id == match.id)
-                .all()
-            )
+            odds_rows = db.query(m.OddsSnapshot).filter(m.OddsSnapshot.match_id == match.id).all()
             probs = [
                 ModelProbability(p.market, p.selection, p.line, p.probability)
                 for p in bundle.markets
             ]
             quotes = [
-                OddsQuote(o.bookmaker, o.market, o.selection, o.line, o.price)
-                for o in odds_rows
+                OddsQuote(o.bookmaker, o.market, o.selection, o.line, o.price) for o in odds_rows
             ]
             raw_bets = self.engine.evaluate(
                 match_id=match.id,

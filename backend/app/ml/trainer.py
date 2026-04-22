@@ -122,8 +122,6 @@ class FootballTrainer:
             calibrator=calibrator,
             version=self.version,
         )
-        report = TrainingReport(
-            n_samples=len(df), log_loss=ll, accuracy=acc, version=self.version
-        )
+        report = TrainingReport(n_samples=len(df), log_loss=ll, accuracy=acc, version=self.version)
         log.info("train.done", **report.__dict__)
         return predictor, report

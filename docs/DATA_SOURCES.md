@@ -22,7 +22,17 @@ The sections below document the external sources the platform is designed to int
 - **Docs**: https://www.football-data.org/documentation/api
 - **Access**: free key with ~10 competitions included; paid tier for the rest.
 - **Covers**: fixtures, scorers, standings, teams. Excellent reliability, low rate limits.
-- **Env var**: `FOOTBALL_DATA_KEY`.
+- **Adapter**: `backend/app/ingestion/football_data_org.py`. **Live as of PR 3.**
+- **Env vars**:
+  - `FOOTBALL_DATA_KEY` — API token (required to enable).
+  - `FOOTBALL_DATA_COMPETITIONS` — comma-separated competition codes. Default:
+    `PL,SA,BL1,FL1,PD,DED,PPL`.
+  - `FOOTBALL_DATA_SEASON` — starting year, e.g. `2024` for 2024/25. Empty = current.
+- **Rate limit**: 10 req/min on the free tier. The adapter spreads calls to
+  roughly one every 6.5 s and retries 429/5xx with exponential backoff.
+- **Raw audit**: every response is persisted into the `ingestion_payloads`
+  table so we can rebuild `matches` without re-calling the API.
+- **CLI**: `python -m app.scripts.ingest_football_data [--season 2024] [--competitions PL,SA]`.
 
 ### SofaScore (unofficial)
 

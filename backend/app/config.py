@@ -23,10 +23,26 @@ class Settings(BaseSettings):
     # Data sources
     api_football_key: str = Field(default="")
     football_data_key: str = Field(default="")
+    football_data_competitions: str = Field(
+        default="PL,SA,BL1,FL1,PD,DED,PPL",
+        description="Comma-separated Football-Data.org competition codes to ingest.",
+    )
+    football_data_season: str = Field(
+        default="",
+        description="Starting year of the season to ingest (e.g. '2024'). Empty = current.",
+    )
     sofascore_enabled: bool = Field(default=False)
     understat_enabled: bool = Field(default=False)
     the_odds_api_key: str = Field(default="")
     snai_enabled: bool = Field(default=False)
+
+    # Force demo data even when credentials are present (useful for CI / tests).
+    force_demo_mode: bool = Field(default=False)
+
+    # Scheduler
+    scheduler_enabled: bool = Field(default=False)
+    scheduler_cron_hour: int = Field(default=3)
+    scheduler_cron_minute: int = Field(default=0)
 
     # Value bet engine
     value_bet_min_edge: float = Field(default=0.03)
@@ -46,7 +62,10 @@ class Settings(BaseSettings):
 
     @property
     def is_demo_mode(self) -> bool:
-        """True when no real data source credentials are configured."""
+        """True when no real data source credentials are configured, or when the
+        operator forced demo mode."""
+        if self.force_demo_mode:
+            return True
         return not any(
             [
                 self.api_football_key,
@@ -57,6 +76,11 @@ class Settings(BaseSettings):
                 self.snai_enabled,
             ]
         )
+
+    @property
+    def football_data_competition_list(self) -> tuple[str, ...]:
+        codes = [c.strip().upper() for c in self.football_data_competitions.split(",")]
+        return tuple(c for c in codes if c)
 
 
 @lru_cache(maxsize=1)

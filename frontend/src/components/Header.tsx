@@ -20,9 +20,16 @@ export default function Header() {
         <div className="flex items-center gap-3">
           <Activity className="h-5 w-5 text-primary" />
           <span className="font-semibold tracking-tight">Sports Predictor</span>
-          {health?.demo_mode && (
+          {health?.demo_mode ? (
             <Badge variant="warning" title="No external data source configured — using synthetic demo data.">
               Demo mode
+            </Badge>
+          ) : (
+            <Badge
+              variant="success"
+              title="At least one real data adapter is active (e.g. Football-Data.org)."
+            >
+              Real data
             </Badge>
           )}
         </div>

@@ -36,7 +36,15 @@ def test_elo_updates_on_win(db_session):
 
     t0 = datetime.now(tz=UTC) - timedelta(days=30)
     match1 = _make_match(
-        db_session, sport=sport, comp=comp, home=a, away=b, kickoff=t0, hs=3, as_=0, status="finished"
+        db_session,
+        sport=sport,
+        comp=comp,
+        home=a,
+        away=b,
+        kickoff=t0,
+        hs=3,
+        as_=0,
+        status="finished",
     )
     match2 = _make_match(
         db_session, sport=sport, comp=comp, home=b, away=a, kickoff=t0 + timedelta(days=7)
@@ -61,7 +69,15 @@ def test_rest_days(db_session):
 
     t0 = datetime.now(tz=UTC) - timedelta(days=30)
     m1 = _make_match(
-        db_session, sport=sport, comp=comp, home=a, away=b, kickoff=t0, hs=1, as_=1, status="finished"
+        db_session,
+        sport=sport,
+        comp=comp,
+        home=a,
+        away=b,
+        kickoff=t0,
+        hs=1,
+        as_=1,
+        status="finished",
     )
     m2 = _make_match(
         db_session, sport=sport, comp=comp, home=a, away=b, kickoff=t0 + timedelta(days=5)

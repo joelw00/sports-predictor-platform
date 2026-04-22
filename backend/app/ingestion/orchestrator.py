@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -14,26 +16,87 @@ from app.logging import get_logger
 log = get_logger(__name__)
 
 
-def ingest_all(db: Session, *, sources: Iterable[BaseSource] | None = None) -> dict[str, int]:
+def ingest_all(
+    db: Session,
+    *,
+    sources: Iterable[BaseSource] | None = None,
+    trigger: str = "manual",
+) -> dict[str, int]:
+    """Run every active ingestion source and persist results.
+
+    Each source invocation is recorded in ``ingestion_runs`` with a status
+    summary. Sources that expose a ``raw_sink`` hook also persist every HTTP
+    payload into ``ingestion_payloads`` for full audit / replay.
+    """
     counts: dict[str, int] = {"matches": 0, "stats": 0, "odds": 0}
     active = list(sources) if sources is not None else get_active_sources()
     for source in active:
+        started_at = datetime.now(tz=UTC)
+        run = m.IngestionRun(
+            source=source.name,
+            trigger=trigger,
+            started_at=started_at,
+            ok=True,
+        )
+        db.add(run)
+        db.flush()
+
+        # Wire the raw sink through to the source only if it supports one and
+        # one wasn't already supplied by the caller (e.g. in tests).
+        if hasattr(source, "_raw_sink") and source._raw_sink is None:
+            source._raw_sink = _make_raw_sink(db, source.name)
+
         try:
             log.info("ingest.source.start", source=source.name)
             result = source.fetch()
         except NotImplementedError as exc:
             log.warning("ingest.source.not_implemented", source=source.name, reason=str(exc))
+            run.ok = False
+            run.error = f"not_implemented: {exc}"[:1024]
+            run.finished_at = datetime.now(tz=UTC)
             continue
         except Exception as exc:  # noqa: BLE001
             log.exception("ingest.source.failed", source=source.name, error=str(exc))
+            run.ok = False
+            run.error = str(exc)[:1024]
+            run.finished_at = datetime.now(tz=UTC)
             continue
 
         c = _persist(db, result)
         for k, v in c.items():
             counts[k] = counts.get(k, 0) + v
+
+        run.matches_upserted = c["matches"]
+        run.stats_upserted = c["stats"]
+        run.odds_upserted = c["odds"]
+        run.finished_at = datetime.now(tz=UTC)
+        run.meta = dict(result.meta)
         log.info("ingest.source.done", source=source.name, **c)
     db.commit()
     return counts
+
+
+def _make_raw_sink(db: Session, source_name: str):
+    def sink(
+        endpoint: str,
+        params: dict[str, Any],
+        status_code: int,
+        payload: dict[str, Any],
+    ) -> None:
+        db.add(
+            m.IngestionPayload(
+                source=source_name,
+                endpoint=endpoint[:256],
+                params=dict(params),
+                status_code=status_code,
+                payload=payload,
+                fetched_at=datetime.now(tz=UTC),
+                ok=200 <= status_code < 400,
+            )
+        )
+        db.flush()
+
+    return sink
 
 
 # ---------------------------------------------------------------------------
@@ -65,14 +128,10 @@ def _get_or_create_competition(
     return comp
 
 
-def _get_or_create_team(
-    db: Session, competition: m.Competition | None, name: str
-) -> m.Team:
+def _get_or_create_team(db: Session, competition: m.Competition | None, name: str) -> m.Team:
     comp_id = competition.id if competition else None
     team = (
-        db.query(m.Team)
-        .filter(m.Team.name == name, m.Team.competition_id == comp_id)
-        .one_or_none()
+        db.query(m.Team).filter(m.Team.name == name, m.Team.competition_id == comp_id).one_or_none()
     )
     if team is None:
         team = m.Team(name=name, competition_id=comp_id)
@@ -146,9 +205,7 @@ def _persist(db: Session, result: IngestionResult) -> dict[str, int]:
         if team is None:
             continue
         existing_stat = (
-            db.query(m.MatchStat)
-            .filter_by(match_id=match.id, team_id=team.id)
-            .one_or_none()
+            db.query(m.MatchStat).filter_by(match_id=match.id, team_id=team.id).one_or_none()
         )
         if existing_stat is None:
             db.add(_build_stat(match.id, team.id, stat))

@@ -27,9 +27,7 @@ def test_poisson_fits_and_probabilities_sum_to_one() -> None:
 
 
 def test_poisson_over_under_complementary() -> None:
-    model = PoissonFootballModel().fit(
-        [("A", "B", 2, 1), ("A", "B", 3, 2), ("A", "B", 1, 1)] * 10
-    )
+    model = PoissonFootballModel().fit([("A", "B", 2, 1), ("A", "B", 3, 2), ("A", "B", 1, 1)] * 10)
     dist = model.predict("A", "B")
     p_over = dist.prob_over(2.5)
     p_under = 1 - p_over
