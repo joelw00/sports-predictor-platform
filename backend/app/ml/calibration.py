@@ -152,39 +152,84 @@ class CalibrationChoice:
 class CalibrationSelector:
     """Fit both isotonic and Platt, keep the one with the lower Brier score.
 
-    Falls back to isotonic when Platt produces an obviously worse Brier (the
-    common symptom of a sigmoidal family that can't represent a locally
-    non-monotone miscalibration curve).
+    The comparison is intentionally made on **held-out** predictions: the
+    (already out-of-fold) input is chunked with a time-ordered K-fold split,
+    each calibrator is fit on ``K-1`` chunks and scored on the last, and the
+    averaged Brier is what drives selection. Only after the winner is picked
+    do we refit it on the full input so the final calibration is as
+    data-efficient as possible.
+
+    This avoids the classic pitfall where isotonic wins every in-sample
+    comparison simply because it can interpolate the training set.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, n_splits: int = 3) -> None:
+        if n_splits < 2:
+            raise ValueError("n_splits must be >= 2")
+        self.n_splits = n_splits
         self.choice: CalibrationChoice | None = None
+
+    # -- helpers -------------------------------------------------------
+
+    @staticmethod
+    def _make_calibrator(kind: str) -> IsotonicCalibrator | PlattCalibrator:
+        return IsotonicCalibrator() if kind == "isotonic" else PlattCalibrator()
+
+    def _held_out_brier(self, kind: str, probs: np.ndarray, labels: np.ndarray) -> float:
+        """Average Brier across a K-fold time-ordered split.
+
+        Falls back to an in-sample score only when the input is too small to
+        build a meaningful held-out split — in that regime the selector
+        result is advisory anyway.
+        """
+        n = len(labels)
+        # Need every fold to see every class. Give up and fall back if that's
+        # impossible (tiny inputs, severe class imbalance).
+        if n < 2 * self.n_splits:
+            cal = self._make_calibrator(kind).fit(probs, labels)
+            return float(brier_score(cal.transform(probs), labels).score)
+
+        fold_size = n // self.n_splits
+        briers: list[float] = []
+        for k in range(self.n_splits):
+            va_start = k * fold_size
+            va_end = (k + 1) * fold_size if k < self.n_splits - 1 else n
+            tr_mask = np.ones(n, dtype=bool)
+            tr_mask[va_start:va_end] = False
+            if len(np.unique(labels[tr_mask])) < 2:
+                continue
+            cal = self._make_calibrator(kind).fit(probs[tr_mask], labels[tr_mask])
+            preds = cal.transform(probs[va_start:va_end])
+            briers.append(
+                float(brier_score(preds, labels[va_start:va_end]).score)
+            )
+        if not briers:
+            cal = self._make_calibrator(kind).fit(probs, labels)
+            return float(brier_score(cal.transform(probs), labels).score)
+        return float(np.mean(briers))
+
+    # -- entry ---------------------------------------------------------
 
     def fit(self, probs: np.ndarray, labels: np.ndarray) -> CalibrationChoice:
         if probs.ndim != 2:
             raise ValueError("probs must be 2-D")
 
-        iso = IsotonicCalibrator().fit(probs, labels)
-        platt = PlattCalibrator().fit(probs, labels)
+        raw_brier = float(brier_score(probs, labels).score)
+        iso_brier = self._held_out_brier("isotonic", probs, labels)
+        platt_brier = self._held_out_brier("platt", probs, labels)
 
-        raw_brier = brier_score(probs, labels).score
-        iso_brier = brier_score(iso.transform(probs), labels).score
-        platt_brier = brier_score(platt.transform(probs), labels).score
-
-        winner: IsotonicCalibrator | PlattCalibrator
-        if iso_brier <= platt_brier:
-            winner = iso
-            kind = "isotonic"
-        else:
-            winner = platt
-            kind = "platt"
+        kind = "isotonic" if iso_brier <= platt_brier else "platt"
+        # Refit the winner on the full input so the deployed calibrator is as
+        # data-efficient as possible; the held-out scores are only used for
+        # model selection.
+        winner = self._make_calibrator(kind).fit(probs, labels)
 
         self.choice = CalibrationChoice(
             calibrator=winner,
             kind=kind,
-            brier_raw=float(raw_brier),
-            brier_isotonic=float(iso_brier),
-            brier_platt=float(platt_brier),
+            brier_raw=raw_brier,
+            brier_isotonic=iso_brier,
+            brier_platt=platt_brier,
             n_holdout=int(len(labels)),
         )
         return self.choice

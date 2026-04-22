@@ -115,15 +115,22 @@ class FootballTrainer:
         log.info("train.data", n_finished=len(finished))
 
         # ---- Poisson -------------------------------------------------
-        poisson_inputs: list[tuple[str, str, int, int]] = []
+        # ``aligned`` has one entry per ``finished`` match — ``None`` where
+        # the match is unusable for Poisson fitting (missing score, unknown
+        # team). This keeps downstream fold indices (which are indices into
+        # ``finished`` / ``df``) correctly aligned with the Poisson inputs.
+        aligned: list[tuple[str, str, int, int] | None] = []
         for match in finished:
             if match.home_score is None or match.away_score is None:
+                aligned.append(None)
                 continue
             home = db.get(m.Team, match.home_team_id)
             away = db.get(m.Team, match.away_team_id)
             if home is None or away is None:
+                aligned.append(None)
                 continue
-            poisson_inputs.append((home.name, away.name, match.home_score, match.away_score))
+            aligned.append((home.name, away.name, match.home_score, match.away_score))
+        poisson_inputs: list[tuple[str, str, int, int]] = [x for x in aligned if x is not None]
         poisson = PoissonFootballModel().fit(poisson_inputs)
 
         # ---- Feature dataset for GBM --------------------------------
@@ -182,7 +189,7 @@ class FootballTrainer:
                 # Poisson-derived BTTS / O2.5 using team strengths fitted on
                 # this fold only — keeps the calibration view honest too.
                 fold_poisson = PoissonFootballModel().fit(
-                    [poisson_inputs[i] for i in tr_idx if i < len(poisson_inputs)]
+                    [aligned[i] for i in tr_idx if aligned[i] is not None]
                 )
                 for va in va_idx:
                     match = finished[va]
