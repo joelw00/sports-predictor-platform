@@ -8,9 +8,9 @@ from app.ingestion.stubs import (
     ApiFootballSource,
     SnaiSource,
     SofaScoreSource,
-    TheOddsApiSource,
     UnderstatSource,
 )
+from app.ingestion.the_odds_api import TheOddsApiRealSource
 
 
 def get_active_sources() -> list[BaseSource]:
@@ -26,7 +26,12 @@ def get_active_sources() -> list[BaseSource]:
         ),
         SofaScoreSource(settings.sofascore_enabled),
         UnderstatSource(settings.understat_enabled),
-        TheOddsApiSource(settings.the_odds_api_key),
+        TheOddsApiRealSource(
+            settings.the_odds_api_key,
+            sport_keys=settings.the_odds_api_sport_key_list or None,
+            regions=settings.the_odds_api_region_list or None,
+            markets=settings.the_odds_api_market_list or None,
+        ),
         SnaiSource(settings.snai_enabled),
     ]
     active = [s for s in candidates if s.is_enabled()]

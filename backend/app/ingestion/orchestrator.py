@@ -12,6 +12,7 @@ from app.db import models as m
 from app.ingestion.base import BaseSource, IngestionResult, RawOdds, RawStat
 from app.ingestion.registry import get_active_sources
 from app.logging import get_logger
+from app.odds.history import mark_closing_odds
 
 log = get_logger(__name__)
 
@@ -72,6 +73,12 @@ def ingest_all(
         run.finished_at = datetime.now(tz=UTC)
         run.meta = dict(result.meta)
         log.info("ingest.source.done", source=source.name, **c)
+    # Mark closing lines on any match whose kickoff has elapsed. Safe to call
+    # when no new odds were ingested — it is a no-op in that case.
+    try:
+        mark_closing_odds(db)
+    except Exception as exc:  # noqa: BLE001 - closing mark must not fail ingestion
+        log.exception("ingest.closing_mark.failed", error=str(exc))
     db.commit()
     return counts
 

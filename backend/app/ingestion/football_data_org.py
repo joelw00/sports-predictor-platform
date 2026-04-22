@@ -57,6 +57,7 @@ from tenacity import (
 )
 
 from app.ingestion.base import BaseSource, IngestionResult, RawMatch
+from app.ingestion.team_names import normalise_team_name
 from app.logging import get_logger
 
 log = get_logger(__name__)
@@ -306,8 +307,8 @@ def _map_match(raw: dict[str, Any], *, competition_code: str) -> RawMatch | None
         sport_code="football",
         competition_code=competition_code,
         competition_name=competition_name,
-        home_team=str(home),
-        away_team=str(away),
+        home_team=normalise_team_name(str(home)),
+        away_team=normalise_team_name(str(away)),
         kickoff=kickoff,
         status=status,
         home_score=int(home_score) if home_score is not None else None,

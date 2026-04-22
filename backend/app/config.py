@@ -34,6 +34,24 @@ class Settings(BaseSettings):
     sofascore_enabled: bool = Field(default=False)
     understat_enabled: bool = Field(default=False)
     the_odds_api_key: str = Field(default="")
+    the_odds_api_sport_keys: str = Field(
+        default=(
+            "soccer_epl,soccer_italy_serie_a,soccer_germany_bundesliga,"
+            "soccer_spain_la_liga,soccer_france_ligue_one,soccer_uefa_champs_league"
+        ),
+        description=(
+            "Comma-separated The Odds API sport keys to ingest. "
+            "See https://the-odds-api.com/sports-odds-data/sports-apis.html"
+        ),
+    )
+    the_odds_api_regions: str = Field(
+        default="eu,uk",
+        description="Comma-separated The Odds API regions (eu, uk, us, au).",
+    )
+    the_odds_api_markets: str = Field(
+        default="h2h,totals,spreads",
+        description="Comma-separated The Odds API markets (h2h, totals, spreads).",
+    )
     snai_enabled: bool = Field(default=False)
 
     # Force demo data even when credentials are present (useful for CI / tests).
@@ -81,6 +99,21 @@ class Settings(BaseSettings):
     def football_data_competition_list(self) -> tuple[str, ...]:
         codes = [c.strip().upper() for c in self.football_data_competitions.split(",")]
         return tuple(c for c in codes if c)
+
+    @property
+    def the_odds_api_sport_key_list(self) -> tuple[str, ...]:
+        keys = [k.strip() for k in self.the_odds_api_sport_keys.split(",")]
+        return tuple(k for k in keys if k)
+
+    @property
+    def the_odds_api_region_list(self) -> tuple[str, ...]:
+        regions = [r.strip().lower() for r in self.the_odds_api_regions.split(",")]
+        return tuple(r for r in regions if r)
+
+    @property
+    def the_odds_api_market_list(self) -> tuple[str, ...]:
+        markets = [mkt.strip().lower() for mkt in self.the_odds_api_markets.split(",")]
+        return tuple(mkt for mkt in markets if mkt)
 
 
 @lru_cache(maxsize=1)

@@ -106,7 +106,9 @@ def test_map_match_preserves_status_and_scores():
     assert mapped.home_score == 2
     assert mapped.away_score == 1
     assert mapped.season == "2024"
-    assert mapped.home_team == "Arsenal FC"
+    # Team-name normaliser strips the "FC" suffix so this row lines up with
+    # The Odds API (and any other source) when the orchestrator upserts.
+    assert mapped.home_team == "Arsenal"
     assert mapped.competition_code == "PL"
 
 
