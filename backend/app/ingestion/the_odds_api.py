@@ -251,8 +251,11 @@ class TheOddsApiRealSource(BaseSource):
     ) -> _Response:
         headers = {k.lower(): v for k, v in http_resp.headers.items()}
         body: Any
+        # Empty body -> {} (not None) so the raw_sink can persist it into the
+        # NOT NULL ``ingestion_payloads.payload`` column without corrupting the
+        # session. Matches Football-Data.org adapter behaviour.
         try:
-            body = http_resp.json() if http_resp.content else None
+            body = http_resp.json() if http_resp.content else {}
         except ValueError:
             body = {"_raw": http_resp.text}
 

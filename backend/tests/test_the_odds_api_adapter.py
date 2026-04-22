@@ -278,6 +278,38 @@ def test_rate_limited_response_raises_retryable_error():
     src.close()
 
 
+def test_empty_response_body_does_not_produce_null_payload():
+    """An empty HTTP body must surface as ``{}`` (not ``None``) so the raw_sink
+    can insert into the NOT NULL ``ingestion_payloads.payload`` column without
+    corrupting the session."""
+    recorded: list[tuple[str, dict[str, Any], int, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"")
+
+    def sink(endpoint: str, params: dict[str, Any], status: int, body: Any) -> None:
+        recorded.append((endpoint, params, status, body))
+
+    client = httpx.Client(base_url=BASE_URL, transport=httpx.MockTransport(handler))
+    src = TheOddsApiRealSource(
+        "k",
+        sport_keys=("soccer_epl",),
+        rate_limit_seconds=0.0,
+        client=client,
+        raw_sink=sink,
+        sleep_fn=lambda _s: None,
+    )
+    result = src.fetch()
+    src.close()
+
+    assert result.matches == []
+    assert recorded, "raw_sink should have been called"
+    _, _, status, body = recorded[0]
+    assert status == 200
+    assert body == {}
+    assert body is not None
+
+
 def test_4xx_null_message_does_not_crash_fetch():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(400, json={"message": None})
