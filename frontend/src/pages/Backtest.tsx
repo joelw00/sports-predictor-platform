@@ -22,6 +22,7 @@ export default function BacktestPage() {
   const [minEdge, setMinEdge] = useState('0.03')
   const [strategy, setStrategy] = useState('flat')
   const [stake, setStake] = useState('1')
+  const [mode, setMode] = useState<'walk_forward' | 'pretrained'>('walk_forward')
   const qc = useQueryClient()
 
   const { data: runs } = useQuery({ queryKey: ['backtests'], queryFn: api.backtests })
@@ -32,9 +33,10 @@ export default function BacktestPage() {
         sport,
         market,
         strategy,
+        mode,
         stake: Number(stake),
         min_edge: Number(minEdge),
-        label: `${sport}/${market}/${strategy}`,
+        label: `${mode}/${sport}/${market}/${strategy}`,
       } as unknown as Partial<BacktestResult>),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['backtests'] }),
   })
@@ -51,8 +53,25 @@ export default function BacktestPage() {
       </div>
 
       <Card>
-        <CardHeader><CardTitle>New simulation</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
+        <CardHeader>
+          <CardTitle>New simulation</CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            <span className="font-medium">Walk-forward</span> retrains the predictor at every
+            fold boundary and scores only future matches — this is the honest evaluation.
+            <span className="font-medium"> Pretrained</span> replays using the already-trained
+            predictor (leaky; kept only for before/after comparison).
+          </p>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 md:grid-cols-7 gap-3 items-end">
+          <Field label="Mode">
+            <Select value={mode} onValueChange={(v) => setMode(v as 'walk_forward' | 'pretrained')}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="walk_forward">Walk-forward</SelectItem>
+                <SelectItem value="pretrained">Pretrained (leaky)</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
           <Field label="Sport">
             <Select value={sport} onValueChange={setSport}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -106,6 +125,35 @@ export default function BacktestPage() {
             <Stat label="Yield" value={`${last.yield_pct.toFixed(2)}%`} />
             <Stat label="Max drawdown" value={last.max_drawdown.toFixed(2)} />
           </CardContent>
+          {last.breakdown && typeof last.breakdown === 'object' ? (
+            <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3 border-t border-border">
+              <Stat
+                label="Mode"
+                value={String((last.breakdown as { mode?: string }).mode ?? 'pretrained')}
+              />
+              <Stat
+                label="Brier (1X2)"
+                value={(() => {
+                  const c = (last.breakdown as { calibration?: { brier?: number } }).calibration
+                  return c?.brier !== undefined ? c.brier.toFixed(4) : '—'
+                })()}
+              />
+              <Stat
+                label="Log-loss (holdout)"
+                value={(() => {
+                  const c = (last.breakdown as { calibration?: { log_loss?: number } }).calibration
+                  return c?.log_loss !== undefined ? c.log_loss.toFixed(4) : '—'
+                })()}
+              />
+              <Stat
+                label="Holdout matches"
+                value={(() => {
+                  const c = (last.breakdown as { calibration?: { n_holdout?: number } }).calibration
+                  return c?.n_holdout ?? '—'
+                })()}
+              />
+            </CardContent>
+          ) : null}
           {last.equity_curve?.length ? (
             <CardContent className="h-72">
               <ResponsiveContainer width="100%" height="100%">

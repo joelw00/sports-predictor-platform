@@ -36,14 +36,29 @@ class FootballTrainer:
     def __init__(self, version: str = "v0") -> None:
         self.version = version
 
-    def train(self, db: Session) -> tuple[FootballPredictor, TrainingReport]:
-        stmt = (
-            select(m.Match)
-            .join(m.Sport, m.Match.sport_id == m.Sport.id)
-            .where(m.Sport.code == "football", m.Match.status == "finished")
-            .order_by(m.Match.kickoff.asc())
-        )
-        finished = list(db.scalars(stmt))
+    def train(
+        self,
+        db: Session,
+        training_matches: list[m.Match] | None = None,
+    ) -> tuple[FootballPredictor, TrainingReport]:
+        """Train on the supplied matches (chronological). If None, uses all finished.
+
+        Accepting an explicit list is what makes walk-forward backtesting honest:
+        the caller passes only matches whose kickoff < fold_start.
+        """
+        if training_matches is None:
+            stmt = (
+                select(m.Match)
+                .join(m.Sport, m.Match.sport_id == m.Sport.id)
+                .where(m.Sport.code == "football", m.Match.status == "finished")
+                .order_by(m.Match.kickoff.asc())
+            )
+            finished = list(db.scalars(stmt))
+        else:
+            finished = sorted(
+                [x for x in training_matches if x.status == "finished"],
+                key=lambda x: x.kickoff,
+            )
         log.info("train.data", n_finished=len(finished))
 
         # ---- Poisson -------------------------------------------------

@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.backtesting.engine import Backtester
+from app.backtesting.walk_forward import WalkForwardBacktester
 from app.db import get_db
 from app.db import models as m
 from app.ml.predictor import FootballPredictor
@@ -26,6 +27,17 @@ class BacktestRequest(BaseModel):
     min_edge: float = 0.03
     start_date: datetime | None = None
     end_date: datetime | None = None
+    mode: str = Field(
+        default="walk_forward",
+        pattern="^(walk_forward|pretrained)$",
+        description=(
+            "walk_forward = honest out-of-sample evaluation (retrains per fold). "
+            "pretrained = legacy replay with the already-trained predictor (leaky; "
+            "kept only for diagnostic comparison)."
+        ),
+    )
+    n_folds: int = 6
+    min_train_folds: int = 2
 
 
 @router.get("/backtests", response_model=list[BacktestResult])
@@ -47,20 +59,39 @@ def run_backtest(
     request: Annotated[BacktestRequest, Body()],
     db: Session = Depends(get_db),
 ) -> BacktestResult:
-    try:
-        predictor = FootballPredictor.load(FootballPredictor.default_artifact_path())
-    except Exception:
-        predictor = FootballPredictor()
     engine = ValueBetEngine(min_edge=request.min_edge)
-    bt = Backtester(predictor, engine=engine, stake=request.stake, strategy=request.strategy)
-    result = bt.run(
-        db,
-        sport_code=request.sport,
-        market=request.market,
-        start_date=request.start_date,
-        end_date=request.end_date,
-        label=request.label,
-    )
+    if request.mode == "walk_forward":
+        bt_wf = WalkForwardBacktester(
+            n_folds=request.n_folds,
+            min_train_folds=request.min_train_folds,
+            engine=engine,
+            stake=request.stake,
+            strategy=request.strategy,
+        )
+        result = bt_wf.run(
+            db,
+            sport_code=request.sport,
+            market=request.market,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            label=request.label,
+        )
+    else:
+        try:
+            predictor = FootballPredictor.load(FootballPredictor.default_artifact_path())
+        except Exception:
+            predictor = FootballPredictor()
+        bt = Backtester(
+            predictor, engine=engine, stake=request.stake, strategy=request.strategy
+        )
+        result = bt.run(
+            db,
+            sport_code=request.sport,
+            market=request.market,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            label=request.label,
+        )
     row = m.BacktestRun(
         label=result.label,
         sport_code=result.sport_code,
