@@ -51,8 +51,26 @@ The sections below document the external sources the platform is designed to int
 
 - **Docs**: https://the-odds-api.com/
 - **Access**: free tier (500 req/month) up to paid plans.
-- **Covers**: odds from dozens of bookmakers across many sports including football and table tennis.
-- **Env var**: `THE_ODDS_API_KEY`.
+- **Covers**: 1X2 (`h2h`), over/under (`totals`) and asian handicap (`spreads`)
+  across 40+ bookmakers (incl. SNAI via the `eu` region for Italian football).
+- **Adapter**: `backend/app/ingestion/the_odds_api.py`. **Live as of PR 4.**
+- **Env vars**:
+  - `THE_ODDS_API_KEY` — API key (required to enable).
+  - `THE_ODDS_API_SPORT_KEYS` — comma-separated sport keys. Default covers
+    PL, Serie A, Bundesliga, La Liga, Ligue 1 and the Champions League.
+  - `THE_ODDS_API_REGIONS` — bookmaker regions. Default `eu,uk`.
+  - `THE_ODDS_API_MARKETS` — markets to fetch. Default `h2h,totals,spreads`.
+- **Rate limit**: 500 req/month (free). One fetch per sport_key per run
+  returns every market for every bookmaker, so the adapter uses ~6 requests
+  per day (the six default sport keys). The quota remaining is captured
+  from the `x-requests-remaining` response header and surfaced in
+  `ingestion_runs.meta["requests_remaining"]`.
+- **Raw audit**: every response is persisted into `ingestion_payloads`
+  (the API key is stripped from the recorded params before writing).
+- **Closing line**: after every ingestion the orchestrator marks the last
+  pre-kickoff snapshot per `(match, bookmaker, market, selection, line)`
+  as `is_closing=true` via `backend/app/odds/history.py::mark_closing_odds`.
+- **CLI**: `python -m app.scripts.ingest_odds_api [--sport-keys soccer_epl,...]`.
 
 ### SNAI (Italian market)
 

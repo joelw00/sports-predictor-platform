@@ -44,11 +44,6 @@ class ApiFootballSource(_KeySource):
     sports = ("football",)
 
 
-class TheOddsApiSource(_KeySource):
-    name = "the-odds-api"
-    sports = ("football", "table_tennis")
-
-
 class SofaScoreSource(_FlagSource):
     name = "sofascore"
     sports = ("football", "table_tennis")

@@ -12,8 +12,21 @@ from app.db import models as m
 from app.ingestion.base import BaseSource, IngestionResult, RawOdds, RawStat
 from app.ingestion.registry import get_active_sources
 from app.logging import get_logger
+from app.odds.history import mark_closing_odds
 
 log = get_logger(__name__)
+
+
+# Monotonic lifecycle order used when multiple sources disagree on the status
+# of the same match. Unknown statuses default to 0 so they can never demote a
+# known status.
+_STATUS_PRIORITY: dict[str, int] = {
+    "scheduled": 0,
+    "postponed": 1,
+    "live": 2,
+    "cancelled": 3,
+    "finished": 4,
+}
 
 
 def ingest_all(
@@ -72,6 +85,12 @@ def ingest_all(
         run.finished_at = datetime.now(tz=UTC)
         run.meta = dict(result.meta)
         log.info("ingest.source.done", source=source.name, **c)
+    # Mark closing lines on any match whose kickoff has elapsed. Safe to call
+    # when no new odds were ingested — it is a no-op in that case.
+    try:
+        mark_closing_odds(db)
+    except Exception as exc:  # noqa: BLE001 - closing mark must not fail ingestion
+        log.exception("ingest.closing_mark.failed", error=str(exc))
     db.commit()
     return counts
 
@@ -187,7 +206,15 @@ def _persist(db: Session, result: IngestionResult) -> dict[str, int]:
             db.flush()
             cnt["matches"] += 1
         else:
-            match.status = raw.status
+            # Only promote the status forward in the match lifecycle. Without
+            # this guard a source that always reports "scheduled" (e.g. The
+            # Odds API, which doesn't carry a real lifecycle field) would
+            # regress a match that another source has already flagged as
+            # "live" or "finished".
+            if _STATUS_PRIORITY.get(raw.status, 0) >= _STATUS_PRIORITY.get(
+                match.status, 0
+            ):
+                match.status = raw.status
             if raw.home_score is not None:
                 match.home_score = raw.home_score
             if raw.away_score is not None:
