@@ -62,6 +62,18 @@ class Settings(BaseSettings):
     scheduler_cron_hour: int = Field(default=3)
     scheduler_cron_minute: int = Field(default=0)
 
+    # Retraining
+    retrain_enabled: bool = Field(
+        default=False,
+        description="When true the scheduler also runs a weekly retrain job.",
+    )
+    retrain_cron_day_of_week: str = Field(
+        default="mon",
+        description="APScheduler day-of-week token for the weekly retrain job.",
+    )
+    retrain_cron_hour: int = Field(default=4)
+    retrain_cron_minute: int = Field(default=0)
+
     # Value bet engine
     value_bet_min_edge: float = Field(default=0.03)
     value_bet_min_confidence: float = Field(default=0.55)

@@ -84,6 +84,41 @@ def recent_ingestion_runs(
     ]
 
 
+class RetrainResponse(BaseModel):
+    triggered_at: datetime
+    version: str
+    n_samples: int
+    log_loss: float
+    accuracy: float
+    calibrator: str
+    brier_calibrated: float | None
+
+
+@router.post("/retrain", response_model=RetrainResponse)
+def trigger_retraining() -> RetrainResponse:
+    """Synchronous on-demand retrain of the football predictor.
+
+    Produces a new versioned artifact, registers it in ``model_registry`` and
+    deactivates the previous active version for the same scope. Blocking: the
+    call takes as long as training on the full history.
+    """
+    # Local import so the heavy sklearn stack only loads when actually used.
+    from app.scripts.train_baseline import compute_version, train_once
+
+    triggered_at = datetime.now(tz=UTC)
+    version = compute_version()
+    report = train_once(version=version)
+    return RetrainResponse(
+        triggered_at=triggered_at,
+        version=version,
+        n_samples=report.n_samples,
+        log_loss=report.log_loss,
+        accuracy=report.accuracy,
+        calibrator=report.calibrator_kind,
+        brier_calibrated=report.brier_calibrated,
+    )
+
+
 @router.post("/ingest", response_model=IngestResponse)
 def trigger_ingestion(db: Session = Depends(get_db)) -> IngestResponse:
     """Run every active source once, synchronously.

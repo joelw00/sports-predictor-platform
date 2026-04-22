@@ -2,13 +2,12 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import EventCard from '@/components/EventCard'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 
 export default function Dashboard() {
-  const [sport, setSport] = useState<string>('football')
+  const sport = 'football'
   const [query, setQuery] = useState('')
 
   const { data, isLoading, error } = useQuery({
@@ -43,7 +42,7 @@ export default function Dashboard() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Today&apos;s board</h1>
         <p className="text-sm text-muted-foreground">
-          Probabilistic forecasts across football leagues and table tennis tournaments, ranked by expected value.
+          Probabilistic forecasts across football leagues, ranked by expected value.
         </p>
       </div>
 
@@ -53,49 +52,42 @@ export default function Dashboard() {
         <StatCard label="With positive edge" value={stats.withValue} tone="success" />
       </div>
 
-      <Tabs value={sport} onValueChange={setSport}>
-        <div className="flex flex-col md:flex-row md:items-center gap-3 md:justify-between">
-          <TabsList>
-            <TabsTrigger value="football">Football</TabsTrigger>
-            <TabsTrigger value="table_tennis">Table Tennis</TabsTrigger>
-          </TabsList>
-          <div className="flex gap-2">
+      <div className="flex flex-col md:flex-row md:items-center gap-3 md:justify-between">
+        <div />
+        <div className="flex gap-2">
             <Input
               placeholder="Filter teams or league…"
               className="md:w-[260px]"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            <Select defaultValue="all">
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="scheduled">Scheduled</SelectItem>
-                <SelectItem value="finished">Finished</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Select defaultValue="all">
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="scheduled">Scheduled</SelectItem>
+              <SelectItem value="finished">Finished</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
+      </div>
 
-        <TabsContent value={sport}>
-          {isLoading && <div className="text-muted-foreground text-sm">Loading events…</div>}
-          {error && <div className="text-destructive text-sm">Failed to load events.</div>}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filtered.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </div>
-          {!isLoading && filtered.length === 0 && (
-            <Card>
-              <CardContent className="p-6 text-center text-muted-foreground text-sm">
-                No events match the current filters.
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+      {isLoading && <div className="text-muted-foreground text-sm">Loading events…</div>}
+      {error && <div className="text-destructive text-sm">Failed to load events.</div>}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {filtered.map((event) => (
+          <EventCard key={event.id} event={event} />
+        ))}
+      </div>
+      {!isLoading && filtered.length === 0 && (
+        <Card>
+          <CardContent className="p-6 text-center text-muted-foreground text-sm">
+            No events match the current filters.
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

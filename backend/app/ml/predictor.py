@@ -11,7 +11,7 @@ import pandas as pd
 
 from app.config import get_settings
 from app.features.football import MatchFeatures
-from app.ml.calibration import IsotonicCalibrator
+from app.ml.calibration import IsotonicCalibrator, PlattCalibrator
 from app.ml.ensemble import EnsembleFootballModel
 from app.ml.gbm import FEATURE_COLUMNS, Gbm1X2Model
 from app.ml.poisson import PoissonFootballModel, ScoreDistribution
@@ -38,19 +38,21 @@ class PredictionBundle:
 
 
 class FootballPredictor:
-    """Bundles Poisson, GBM 1X2, isotonic calibration and the ensemble."""
+    """Bundles Poisson, GBM 1X2, calibrator (isotonic or Platt) and the ensemble."""
 
     def __init__(
         self,
         poisson: PoissonFootballModel | None = None,
         gbm: Gbm1X2Model | None = None,
-        calibrator: IsotonicCalibrator | None = None,
+        calibrator: IsotonicCalibrator | PlattCalibrator | None = None,
         ensemble: EnsembleFootballModel | None = None,
         version: str = "v0",
     ) -> None:
         self.poisson = poisson or PoissonFootballModel()
         self.gbm = gbm or Gbm1X2Model()
-        self.calibrator = calibrator or IsotonicCalibrator()
+        self.calibrator: IsotonicCalibrator | PlattCalibrator = (
+            calibrator or IsotonicCalibrator()
+        )
         self.ensemble = ensemble or EnsembleFootballModel(weights=(0.55, 0.45))
         self.version = version
 
@@ -128,6 +130,7 @@ class FootballPredictor:
                 else None
             ),
             "gbm_metrics": self.gbm.metrics,
+            "calibrator_kind": self.calibrator.kind if self.calibrator.fitted else None,
             "calibrator": self.calibrator._regs if self.calibrator.fitted else None,
             "ensemble_weights": list(self.ensemble.weights),
         }
@@ -144,7 +147,11 @@ class FootballPredictor:
         if bundle.get("gbm_booster"):
             gbm._booster = lgb.Booster(model_str=bundle["gbm_booster"])
             gbm._fitted = True
-        calibrator = IsotonicCalibrator()
+        calibrator: IsotonicCalibrator | PlattCalibrator
+        if bundle.get("calibrator_kind") == "platt":
+            calibrator = PlattCalibrator()
+        else:
+            calibrator = IsotonicCalibrator()
         if bundle.get("calibrator"):
             calibrator._regs = list(bundle["calibrator"])
             calibrator._fitted = True
