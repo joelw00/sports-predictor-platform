@@ -17,6 +17,18 @@ from app.odds.history import mark_closing_odds
 log = get_logger(__name__)
 
 
+# Monotonic lifecycle order used when multiple sources disagree on the status
+# of the same match. Unknown statuses default to 0 so they can never demote a
+# known status.
+_STATUS_PRIORITY: dict[str, int] = {
+    "scheduled": 0,
+    "postponed": 1,
+    "live": 2,
+    "cancelled": 3,
+    "finished": 4,
+}
+
+
 def ingest_all(
     db: Session,
     *,
@@ -194,7 +206,15 @@ def _persist(db: Session, result: IngestionResult) -> dict[str, int]:
             db.flush()
             cnt["matches"] += 1
         else:
-            match.status = raw.status
+            # Only promote the status forward in the match lifecycle. Without
+            # this guard a source that always reports "scheduled" (e.g. The
+            # Odds API, which doesn't carry a real lifecycle field) would
+            # regress a match that another source has already flagged as
+            # "live" or "finished".
+            if _STATUS_PRIORITY.get(raw.status, 0) >= _STATUS_PRIORITY.get(
+                match.status, 0
+            ):
+                match.status = raw.status
             if raw.home_score is not None:
                 match.home_score = raw.home_score
             if raw.away_score is not None:

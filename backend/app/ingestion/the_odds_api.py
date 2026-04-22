@@ -417,7 +417,12 @@ def _map_outcome(
 def _parse_datetime(value: str) -> datetime:
     if value.endswith("Z"):
         value = value[:-1] + "+00:00"
-    return datetime.fromisoformat(value)
+    dt = datetime.fromisoformat(value)
+    # Guarantee tz-aware datetimes so matches land in the same timezone as the
+    # Football-Data.org adapter and don't create duplicate kickoff rows.
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return dt
 
 
 def _parse_int_header(headers: dict[str, str], name: str) -> int | None:

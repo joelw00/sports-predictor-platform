@@ -134,6 +134,18 @@ def test_map_event_odds_covers_1x2_totals_and_spreads():
     assert ("bet365", "OU") not in by_book_market
 
 
+def test_map_event_promotes_naive_commence_time_to_utc():
+    """If The Odds API ever drops the trailing ``Z`` / tz offset, the adapter
+    must still return a timezone-aware datetime so matches land in the same
+    zone as Football-Data.org and don't duplicate on dedup."""
+    evt = _sample_event()
+    evt["commence_time"] = "2025-01-15T15:00:00"  # no Z, no offset
+    raw = _map_event(evt, sport_key="soccer_epl")
+    assert raw is not None
+    assert raw.kickoff.tzinfo is not None
+    assert raw.kickoff == datetime(2025, 1, 15, 15, 0, tzinfo=UTC)
+
+
 def test_map_event_odds_skips_bogus_prices():
     evt = _sample_event()
     evt["bookmakers"][0]["markets"][0]["outcomes"][0]["price"] = 1.0
@@ -387,3 +399,73 @@ def test_orchestrator_persists_matches_odds_and_marks_closing(sqlite_db: Session
     assert len(runs) == 1
     assert runs[0].source == "the-odds-api"
     assert runs[0].ok is True
+
+
+# ---------------------------------------------------------------------------
+# Status monotonicity across overlapping sources
+# ---------------------------------------------------------------------------
+
+
+class _StubSource:
+    """Minimal BaseSource-compatible stub that emits a single prepared result."""
+
+    name = "stub"
+    sports = ("football",)
+
+    def __init__(self, name: str, result: Any) -> None:
+        self.name = name
+        self._result = result
+
+    def is_enabled(self) -> bool:
+        return True
+
+    def fetch(self, *, season: str | None = None) -> Any:
+        return self._result
+
+
+def test_status_is_not_regressed_when_the_odds_api_runs_after_finished_source(
+    sqlite_db: Session,
+):
+    """Regression test: The Odds API hardcodes ``status="scheduled"`` per-event.
+    If the orchestrator persisted that naively, it would demote a match that
+    Football-Data.org has already marked as ``finished`` (or ``live``) back to
+    ``scheduled`` whenever both sources share a competition. Ingestion must
+    only promote status forward along the lifecycle."""
+    from app.ingestion.base import IngestionResult, RawMatch
+
+    kickoff = datetime(2025, 1, 15, 15, 0, tzinfo=UTC)
+    finished = RawMatch(
+        external_id="fd:1",
+        sport_code="football",
+        competition_code="PL",
+        competition_name="Premier League",
+        home_team="Manchester City",
+        away_team="Arsenal",
+        kickoff=kickoff,
+        status="finished",
+        home_score=2,
+        away_score=1,
+    )
+    scheduled = RawMatch(
+        external_id="odds-api:evt1",
+        sport_code="football",
+        competition_code="PL",
+        competition_name="Premier League",
+        home_team="Manchester City",
+        away_team="Arsenal",
+        kickoff=kickoff,
+        status="scheduled",
+    )
+    src1 = _StubSource("football-data.org", IngestionResult(matches=[finished]))
+    src2 = _StubSource("the-odds-api", IngestionResult(matches=[scheduled]))
+
+    ingest_all(sqlite_db, sources=[src1, src2])
+
+    rows = sqlite_db.query(m.Match).all()
+    assert len(rows) == 1, "sources must dedupe, not duplicate"
+    assert rows[0].status == "finished", (
+        "a 'scheduled' update from The Odds API must not demote an already "
+        "'finished' match"
+    )
+    assert rows[0].home_score == 2
+    assert rows[0].away_score == 1
