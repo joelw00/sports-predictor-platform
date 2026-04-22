@@ -252,9 +252,8 @@ class FootballDataOrgSource(BaseSource):
             raise FootballDataOrgError(f"{http_resp.status_code} upstream error")
         if http_resp.status_code >= 400:
             # 4xx other than 429 is not retryable.
-            raise FootballDataOrgError(
-                f"{http_resp.status_code} {body.get('message', http_resp.text)[:200]}"
-            )
+            detail = body.get("message") or http_resp.text or ""
+            raise FootballDataOrgError(f"{http_resp.status_code} {detail[:200]}")
         return _Response(status_code=http_resp.status_code, body=body)
 
 

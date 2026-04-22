@@ -198,6 +198,36 @@ def test_unauthorized_response_is_not_retried():
     assert "failures" in result.meta
 
 
+def test_4xx_with_null_message_does_not_crash_fetch():
+    """Regression: body.get('message', text)[:200] blew up on {'message': null}."""
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        # message is present but null — previously triggered TypeError on None[:200]
+        return httpx.Response(400, json={"message": None})
+
+    client = httpx.Client(
+        base_url="https://api.football-data.org/v4",
+        transport=httpx.MockTransport(handler),
+        headers={"X-Auth-Token": "k"},
+    )
+    src = FootballDataOrgSource(
+        "k",
+        competitions=("PL", "SA"),
+        rate_limit_seconds=0.0,
+        client=client,
+        sleep_fn=lambda _s: None,
+    )
+    result = src.fetch()
+    src.close()
+    # Both competitions must be isolated — no exception escapes fetch().
+    assert result.matches == []
+    assert calls["n"] == 2
+    assert len(result.meta["failures"]) == 2
+    assert {f["competition"] for f in result.meta["failures"]} == {"PL", "SA"}
+
+
 def test_rate_limited_response_raises_retryable_error():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(429, json={"message": "Too Many Requests"})
