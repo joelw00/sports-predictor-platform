@@ -72,7 +72,9 @@ class Gbm1X2Model:
             self._fitted = True
             return self
 
-        X_tr, X_val, y_tr, y_val = train_test_split(X, y, test_size=0.2, random_state=7, shuffle=True)
+        X_tr, X_val, y_tr, y_val = train_test_split(
+            X, y, test_size=0.2, random_state=7, shuffle=True
+        )
         train = lgb.Dataset(X_tr, label=y_tr)
         valid = lgb.Dataset(X_val, label=y_val, reference=train)
         params = self._params()

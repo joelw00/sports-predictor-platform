@@ -239,3 +239,51 @@ class BacktestRun(Base, TimestampMixin):
     profit_factor: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     equity_curve: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
     breakdown: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# Raw ingestion payloads (audit trail for external API responses)
+# ---------------------------------------------------------------------------
+
+
+class IngestionPayload(Base, TimestampMixin):
+    """Unmodified JSON response stored per (source, endpoint) call.
+
+    Serves as an audit trail / reprocessing buffer so we can rebuild the
+    ``matches`` / ``match_stats`` / ``odds_snapshots`` tables without hitting
+    the external API again.
+    """
+
+    __tablename__ = "ingestion_payloads"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source: Mapped[str] = mapped_column(String(64), nullable=False)
+    endpoint: Mapped[str] = mapped_column(String(256), nullable=False)
+    params: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    status_code: Mapped[int | None] = mapped_column(Integer)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ok: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    error: Mapped[str | None] = mapped_column(String(512))
+
+
+class IngestionRun(Base, TimestampMixin):
+    """Summary row per ingestion invocation (scheduled or manual).
+
+    Useful for monitoring: how many rows were touched, which sources succeeded,
+    what the payload IDs are that backed this run.
+    """
+
+    __tablename__ = "ingestion_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source: Mapped[str] = mapped_column(String(64), nullable=False)
+    trigger: Mapped[str] = mapped_column(String(32), default="manual", nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    matches_upserted: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    stats_upserted: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    odds_upserted: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    ok: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    error: Mapped[str | None] = mapped_column(String(1024))
+    meta: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)

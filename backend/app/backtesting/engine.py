@@ -110,8 +110,7 @@ class Backtester:
                 .all()
             )
             quotes = [
-                OddsQuote(o.bookmaker, o.market, o.selection, o.line, o.price)
-                for o in odds_rows
+                OddsQuote(o.bookmaker, o.market, o.selection, o.line, o.price) for o in odds_rows
             ]
             bets = self.engine.evaluate(
                 match_id=match.id,
@@ -130,8 +129,8 @@ class Backtester:
                     n_wins += 1
                     ret = stake * best.price
                     total_return += ret
-                    wins_total += (ret - stake)
-                    bankroll += (ret - stake)
+                    wins_total += ret - stake
+                    bankroll += ret - stake
                 else:
                     losses_total += stake
                     bankroll -= stake
@@ -181,9 +180,7 @@ class Backtester:
                         "bets": v["bets"],
                         "wins": v["wins"],
                         "hit_rate": round(v["wins"] / v["bets"], 3) if v["bets"] else 0.0,
-                        "roi": round(
-                            (v["return"] - v["staked"]) / v["staked"], 4
-                        )
+                        "roi": round((v["return"] - v["staked"]) / v["staked"], 4)
                         if v["staked"]
                         else 0.0,
                     }

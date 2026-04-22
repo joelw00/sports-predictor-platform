@@ -81,9 +81,7 @@ def run_backtest(
             predictor = FootballPredictor.load(FootballPredictor.default_artifact_path())
         except Exception:
             predictor = FootballPredictor()
-        bt = Backtester(
-            predictor, engine=engine, stake=request.stake, strategy=request.strategy
-        )
+        bt = Backtester(predictor, engine=engine, stake=request.stake, strategy=request.strategy)
         result = bt.run(
             db,
             sport_code=request.sport,

@@ -123,9 +123,7 @@ class ValueBetEngine:
         keep = [
             b
             for b in bets
-            if b.edge >= self.min_edge
-            and b.confidence >= self.min_confidence
-            and b.price > 1.05
+            if b.edge >= self.min_edge and b.confidence >= self.min_confidence and b.price > 1.05
         ]
         keep.sort(key=lambda b: (b.edge, b.expected_value, b.confidence), reverse=True)
         return keep

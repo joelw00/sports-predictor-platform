@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -7,6 +10,16 @@ from app import __version__
 from app.api import router as api_router
 from app.config import get_settings
 from app.logging import configure_logging
+from app.scheduler import start_scheduler, stop_scheduler
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    start_scheduler()
+    try:
+        yield
+    finally:
+        stop_scheduler()
 
 
 def create_app() -> FastAPI:
@@ -16,6 +29,7 @@ def create_app() -> FastAPI:
         title="Sports Predictor Platform",
         version=__version__,
         summary="ML-powered sports predictions, value bets and backtesting.",
+        lifespan=_lifespan,
     )
     app.add_middleware(
         CORSMiddleware,
@@ -33,6 +47,7 @@ def create_app() -> FastAPI:
             "version": __version__,
             "docs": "/docs",
             "health": "/health",
+            "demo_mode": settings.is_demo_mode,
         }
 
     return app

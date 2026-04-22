@@ -78,15 +78,9 @@ class FootballPredictor:
             MarketProbabilities("1x2", "home", None, float(blended[0])),
             MarketProbabilities("1x2", "draw", None, float(blended[1])),
             MarketProbabilities("1x2", "away", None, float(blended[2])),
-            MarketProbabilities(
-                "double_chance", "1x", None, float(blended[0] + blended[1])
-            ),
-            MarketProbabilities(
-                "double_chance", "12", None, float(blended[0] + blended[2])
-            ),
-            MarketProbabilities(
-                "double_chance", "x2", None, float(blended[1] + blended[2])
-            ),
+            MarketProbabilities("double_chance", "1x", None, float(blended[0] + blended[1])),
+            MarketProbabilities("double_chance", "12", None, float(blended[0] + blended[2])),
+            MarketProbabilities("double_chance", "x2", None, float(blended[1] + blended[2])),
         ]
         for line in (0.5, 1.5, 2.5, 3.5):
             p_over = score_dist.prob_over(line)

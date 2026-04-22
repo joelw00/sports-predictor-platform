@@ -19,7 +19,9 @@ def db_session() -> Session:
     url = f"sqlite:///{tmp.name}"
     engine = create_engine(url, future=True)
     Base.metadata.create_all(engine)
-    SessionMaker = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+    SessionMaker = sessionmaker(
+        bind=engine, autoflush=False, autocommit=False, expire_on_commit=False
+    )
     session = SessionMaker()
     try:
         yield session

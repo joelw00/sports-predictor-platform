@@ -197,11 +197,13 @@ class WalkForwardBacktester:
                 )
 
         # --- 4. Aggregate metrics.
-        roi = (state.total_return - state.total_staked) / state.total_staked if state.total_staked else 0.0
-        yield_pct = roi * 100.0
-        profit_factor = (
-            state.wins_total / state.losses_total if state.losses_total > 0 else 0.0
+        roi = (
+            (state.total_return - state.total_staked) / state.total_staked
+            if state.total_staked
+            else 0.0
         )
+        yield_pct = roi * 100.0
+        profit_factor = state.wins_total / state.losses_total if state.losses_total > 0 else 0.0
 
         cal_metrics: dict[str, float | list] = {}
         if probs_1x2:
@@ -247,8 +249,7 @@ class WalkForwardBacktester:
             sport_code=sport_code,
             market=market,
             start_date=start_date or resolved_start,
-            end_date=end_date
-            or (finished[-1].kickoff if finished else datetime.now(UTC)),
+            end_date=end_date or (finished[-1].kickoff if finished else datetime.now(UTC)),
             strategy=self.strategy,
             min_edge=self.engine.min_edge,
             stake=self.stake,
