@@ -161,6 +161,56 @@ export interface MonitoringSnapshot {
   meta: Record<string, unknown>
 }
 
+export interface FeatureContribution {
+  feature: string
+  value: number
+  shap_value: number
+}
+
+export interface OutcomeExplanation {
+  outcome: string
+  base_probability: number
+  model_probability: number
+  top_positive: FeatureContribution[]
+  top_negative: FeatureContribution[]
+}
+
+export interface MatchExplanation {
+  match_id: number
+  home_team: string
+  away_team: string
+  model_version: string
+  outcomes: OutcomeExplanation[]
+}
+
+export interface RiskPolicy {
+  id: number
+  name: string
+  bankroll: number
+  kelly_fraction: number
+  max_stake_pct: number
+  max_daily_exposure_pct: number
+  max_concurrent_positions: number
+  stop_loss_drawdown_pct: number
+  min_edge: number
+  min_confidence: number
+  enabled: boolean
+}
+
+export interface RiskDecision {
+  match_id: number
+  market: string
+  selection: string
+  line: number | null
+  bookmaker: string
+  edge: number
+  confidence: number
+  kelly_fraction: number
+  recommended_stake: number
+  accepted: boolean
+  reasons: string[]
+}
+
 export const api = {
   health: () => http<HealthResponse>('/health'),
   monitoringLatest: (sport = 'football', market = '1x2') =>
@@ -188,4 +238,11 @@ export const api = {
   backtests: () => http<BacktestResult[]>('/backtests'),
   runBacktest: (body: Partial<BacktestResult> & Record<string, unknown>) =>
     http<BacktestResult>('/backtests/run', { method: 'POST', body: JSON.stringify(body) }),
+  explainMatch: (id: number, topK = 5) =>
+    http<MatchExplanation>(`/events/${id}/explain?top_k=${topK}`),
+  riskPolicy: () => http<RiskPolicy>('/risk/policy'),
+  updateRiskPolicy: (body: Omit<RiskPolicy, 'id' | 'name'>) =>
+    http<RiskPolicy>('/risk/policy', { method: 'PUT', body: JSON.stringify(body) }),
+  riskEvaluate: (sport = 'football', limit = 50) =>
+    http<RiskDecision[]>(`/risk/evaluate?sport=${sport}&limit=${limit}`),
 }

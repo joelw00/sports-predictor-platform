@@ -4,10 +4,12 @@ from app.api import (
     admin,
     backtests,
     events,
+    explain,
     health,
     models,
     monitoring,
     predictions,
+    risk,
     sports,
     value_bets,
 )
@@ -22,5 +24,7 @@ router.include_router(backtests.router)
 router.include_router(admin.router)
 router.include_router(models.router)
 router.include_router(monitoring.router)
+router.include_router(explain.router)
+router.include_router(risk.router)
 
 __all__ = ["router"]

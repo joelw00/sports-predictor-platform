@@ -297,6 +297,29 @@ class IngestionRun(Base, TimestampMixin):
 # ---------------------------------------------------------------------------
 
 
+class RiskPolicy(Base, TimestampMixin):
+    """Bankroll / risk policy applied to the value-bet engine and backtester.
+
+    There is always a single active ``"default"`` policy. UI lets the operator
+    tweak bankroll, fractional-Kelly cap, per-bet and per-day exposure limits,
+    max concurrent positions, and a drawdown-based stop-loss.
+    """
+
+    __tablename__ = "risk_policies"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, default="default")
+    bankroll: Mapped[float] = mapped_column(Float, nullable=False, default=1000.0)
+    kelly_fraction: Mapped[float] = mapped_column(Float, nullable=False, default=0.25)
+    max_stake_pct: Mapped[float] = mapped_column(Float, nullable=False, default=0.02)
+    max_daily_exposure_pct: Mapped[float] = mapped_column(Float, nullable=False, default=0.10)
+    max_concurrent_positions: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
+    stop_loss_drawdown_pct: Mapped[float] = mapped_column(Float, nullable=False, default=0.20)
+    min_edge: Mapped[float] = mapped_column(Float, nullable=False, default=0.03)
+    min_confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.55)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
 class MonitoringSnapshot(Base, TimestampMixin):
     """Periodic monitoring pass. One row per run per (sport, market).
 

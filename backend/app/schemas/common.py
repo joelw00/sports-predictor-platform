@@ -108,6 +108,68 @@ class MatchDetail(ORMModel):
     form: dict = Field(default_factory=dict)
 
 
+class FeatureContributionOut(BaseModel):
+    feature: str
+    value: float
+    shap_value: float
+
+
+class OutcomeExplanationOut(BaseModel):
+    outcome: str
+    base_probability: float
+    model_probability: float
+    top_positive: list[FeatureContributionOut]
+    top_negative: list[FeatureContributionOut]
+
+
+class MatchExplanationOut(BaseModel):
+    match_id: int
+    home_team: str
+    away_team: str
+    model_version: str
+    outcomes: list[OutcomeExplanationOut]
+
+
+class RiskPolicyOut(ORMModel):
+    id: int
+    name: str
+    bankroll: float
+    kelly_fraction: float
+    max_stake_pct: float
+    max_daily_exposure_pct: float
+    max_concurrent_positions: int
+    stop_loss_drawdown_pct: float
+    min_edge: float
+    min_confidence: float
+    enabled: bool
+
+
+class RiskPolicyUpdate(BaseModel):
+    bankroll: float = Field(gt=0)
+    kelly_fraction: float = Field(ge=0.0, le=1.0)
+    max_stake_pct: float = Field(ge=0.0, le=1.0)
+    max_daily_exposure_pct: float = Field(ge=0.0, le=1.0)
+    max_concurrent_positions: int = Field(ge=0)
+    stop_loss_drawdown_pct: float = Field(ge=0.0, le=1.0)
+    min_edge: float = Field(ge=0.0)
+    min_confidence: float = Field(ge=0.0, le=1.0)
+    enabled: bool = True
+
+
+class RiskDecisionOut(BaseModel):
+    match_id: int
+    market: str
+    selection: str
+    line: float | None = None
+    bookmaker: str
+    edge: float
+    confidence: float
+    kelly_fraction: float
+    recommended_stake: float
+    accepted: bool
+    reasons: list[str]
+
+
 class BacktestResult(ORMModel):
     id: int
     label: str

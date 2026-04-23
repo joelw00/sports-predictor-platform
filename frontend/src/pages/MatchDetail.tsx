@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatEdge, formatOdds, formatPercent, marketGroup, marketLabel } from '@/lib/utils'
+import ExplainCard from '@/components/ExplainCard'
 
 export default function MatchDetailPage() {
   const { id } = useParams()
@@ -150,6 +151,8 @@ export default function MatchDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      <ExplainCard matchId={matchId} />
 
       <Card>
         <CardHeader><CardTitle>Bookmaker odds</CardTitle></CardHeader>
