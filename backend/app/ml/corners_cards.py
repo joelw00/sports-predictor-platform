@@ -83,7 +83,6 @@ class CornersCardsModel:
         def _fit(target_idx: int) -> TotalsFit:
             # target_idx: 0 → corners, 1 → cards.
             residuals: list[float] = []
-            observed: list[float] = []
             for feats, value in zip(
                 train_features,
                 corners_totals if target_idx == 0 else cards_totals,
@@ -93,14 +92,18 @@ class CornersCardsModel:
                     continue
                 predicted = self._feature_mu(feats, target_idx)
                 residuals.append(value - predicted)
-                observed.append(float(value))
             if not residuals:
                 return TotalsFit(
                     0.0,
                     _FALLBACK_CORNERS_SIGMA if target_idx == 0 else _FALLBACK_CARDS_SIGMA,
                 )
             mu_bias = float(mean(residuals))
-            sigma = float(pstdev(observed)) if len(observed) >= 2 else (
+            # σ is the residual spread *around* the (biased) feature-based μ —
+            # i.e. the spread of (value − predicted) after the mean shift
+            # mu_bias has been accounted for. Using observed totals here would
+            # double-count feature-explained variance and inflate σ.
+            centered = [r - mu_bias for r in residuals]
+            sigma = float(pstdev(centered)) if len(centered) >= 2 else (
                 _FALLBACK_CORNERS_SIGMA if target_idx == 0 else _FALLBACK_CARDS_SIGMA
             )
             if sigma <= 0.0:

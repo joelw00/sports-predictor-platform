@@ -204,8 +204,6 @@ class FootballFeatureBuilder:
                 home.shots.append(home_stat.shots)
             if home_stat.corners is not None:
                 home.corners_for.append(home_stat.corners)
-                if away_stat is not None and away_stat.corners is not None:
-                    home.corners_against.append(away_stat.corners)
             hy = home_stat.yellow_cards or 0
             hr = home_stat.red_cards or 0
             if home_stat.yellow_cards is not None or home_stat.red_cards is not None:
@@ -219,12 +217,17 @@ class FootballFeatureBuilder:
                 away.shots.append(away_stat.shots)
             if away_stat.corners is not None:
                 away.corners_for.append(away_stat.corners)
-                if home_stat is not None and home_stat.corners is not None:
-                    away.corners_against.append(home_stat.corners)
             ay = away_stat.yellow_cards or 0
             ar = away_stat.red_cards or 0
             if away_stat.yellow_cards is not None or away_stat.red_cards is not None:
                 away.cards.append(ay + ar)
+        # corners_against is independent of the team's own corners — record
+        # it whenever the opponent's stat is available.
+        if home_stat is not None and away_stat is not None:
+            if away_stat.corners is not None:
+                home.corners_against.append(away_stat.corners)
+            if home_stat.corners is not None:
+                away.corners_against.append(home_stat.corners)
 
         key = self._h2h_key(match.home_team_id, match.away_team_id)
         h2h = self._h2h[key]
