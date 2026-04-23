@@ -14,10 +14,9 @@ export default function About() {
           </p>
           <p>
             Coverage targets all major football leagues (Serie A, Premier League, LaLiga, Bundesliga, Ligue 1,
-            Eredivisie, Primeira Liga, MLS, Liga MX, Brasileirão, J-League, UEFA and CONMEBOL competitions…)
-            and international table tennis events (ITTF, WTT, national leagues). When no external data source
-            is configured, a deterministic <em>Demo mode</em> generates realistic synthetic fixtures so the whole
-            pipeline runs end-to-end.
+            Eredivisie, Primeira Liga, MLS, Liga MX, Brasileirão, J-League, UEFA and CONMEBOL competitions…).
+            When no external data source is configured, a deterministic <em>Demo mode</em> generates realistic
+            synthetic fixtures so the whole pipeline runs end-to-end.
           </p>
           <p className="text-warning-foreground">
             <strong>Important:</strong> predictions are <em>probabilistic</em>, not guarantees. Always apply risk

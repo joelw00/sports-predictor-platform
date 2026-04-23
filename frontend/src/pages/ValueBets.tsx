@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 export default function ValueBetsPage() {
-  const [sport, setSport] = useState('football')
+  const sport = 'football'
   const [market, setMarket] = useState('all')
   const [minEdge, setMinEdge] = useState('0.03')
   const [minConf, setMinConf] = useState('0.55')
@@ -34,17 +34,7 @@ export default function ValueBetsPage() {
         </p>
       </div>
       <Card>
-        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4">
-          <div>
-            <label className="text-xs text-muted-foreground">Sport</label>
-            <Select value={sport} onValueChange={setSport}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="football">Football</SelectItem>
-                <SelectItem value="table_tennis">Table Tennis</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-3 p-4">
           <div>
             <label className="text-xs text-muted-foreground">Market</label>
             <Select value={market} onValueChange={setMarket}>
@@ -55,7 +45,6 @@ export default function ValueBetsPage() {
                 <SelectItem value="double_chance">Double chance</SelectItem>
                 <SelectItem value="over_under">Over / Under</SelectItem>
                 <SelectItem value="btts">BTTS</SelectItem>
-                <SelectItem value="match_winner">Match winner (TT)</SelectItem>
               </SelectContent>
             </Select>
           </div>

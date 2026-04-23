@@ -1,4 +1,8 @@
-from app.ml.calibration import IsotonicCalibrator
+from app.ml.calibration import (
+    CalibrationSelector,
+    IsotonicCalibrator,
+    PlattCalibrator,
+)
 from app.ml.ensemble import EnsembleFootballModel
 from app.ml.gbm import Gbm1X2Model
 from app.ml.poisson import PoissonFootballModel, ScoreDistribution
@@ -10,6 +14,8 @@ __all__ = [
     "Gbm1X2Model",
     "EnsembleFootballModel",
     "IsotonicCalibrator",
+    "PlattCalibrator",
+    "CalibrationSelector",
     "FootballPredictor",
     "PredictionBundle",
 ]

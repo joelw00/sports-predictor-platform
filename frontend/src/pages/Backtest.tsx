@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatPercent } from '@/lib/utils'
 
 export default function BacktestPage() {
-  const [sport, setSport] = useState('football')
+  const sport = 'football'
   const [market, setMarket] = useState('1x2')
   const [minEdge, setMinEdge] = useState('0.03')
   const [strategy, setStrategy] = useState('flat')
@@ -62,22 +62,13 @@ export default function BacktestPage() {
             predictor (leaky; kept only for before/after comparison).
           </p>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-7 gap-3 items-end">
+        <CardContent className="grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
           <Field label="Mode">
             <Select value={mode} onValueChange={(v) => setMode(v as 'walk_forward' | 'pretrained')}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="walk_forward">Walk-forward</SelectItem>
                 <SelectItem value="pretrained">Pretrained (leaky)</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Sport">
-            <Select value={sport} onValueChange={setSport}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="football">Football</SelectItem>
-                <SelectItem value="table_tennis">Table Tennis</SelectItem>
               </SelectContent>
             </Select>
           </Field>

@@ -30,11 +30,28 @@ class PredictionService:
         predictor: FootballPredictor | None = None,
         engine: ValueBetEngine | None = None,
     ) -> None:
-        self.predictor = predictor or self._load_default_predictor()
+        self.predictor = predictor or self._load_active_predictor()
         self.engine = engine or ValueBetEngine()
 
     @staticmethod
-    def _load_default_predictor() -> FootballPredictor:
+    def _load_active_predictor() -> FootballPredictor:
+        """Load the currently-active versioned artifact, falling back to the
+        legacy hard-coded path, then to an untrained predictor."""
+        from app.db import SessionLocal
+
+        try:
+            with SessionLocal() as db:
+                row = (
+                    db.query(m.ModelRegistry)
+                    .filter_by(sport_code="football", market="1x2", is_active=True)
+                    .order_by(m.ModelRegistry.updated_at.desc())
+                    .first()
+                )
+            if row and row.artifact_path and Path(row.artifact_path).exists():
+                return FootballPredictor.load(row.artifact_path)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("predictions.registry_lookup_failed", error=str(exc))
+
         path = FootballPredictor.default_artifact_path()
         if Path(path).exists():
             return FootballPredictor.load(path)
