@@ -43,6 +43,12 @@ def _make_features(**overrides: float) -> MatchFeatures:
         "away_rest_days": 4.0,
         "home_shots_avg": 12.0,
         "away_shots_avg": 10.0,
+        "home_corners_for_avg": 5.0,
+        "home_corners_against_avg": 4.5,
+        "away_corners_for_avg": 4.5,
+        "away_corners_against_avg": 5.0,
+        "home_cards_avg": 2.2,
+        "away_cards_avg": 2.3,
     }
     base.update(overrides)
     return MatchFeatures(**base)  # type: ignore[arg-type]

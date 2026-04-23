@@ -12,6 +12,11 @@ import pandas as pd
 from app.config import get_settings
 from app.features.football import MatchFeatures
 from app.ml.calibration import IsotonicCalibrator, PlattCalibrator
+from app.ml.corners_cards import (
+    DEFAULT_CARD_LINES,
+    DEFAULT_CORNER_LINES,
+    CornersCardsModel,
+)
 from app.ml.ensemble import EnsembleFootballModel
 from app.ml.gbm import FEATURE_COLUMNS, Gbm1X2Model
 from app.ml.poisson import PoissonFootballModel, ScoreDistribution
@@ -46,6 +51,7 @@ class FootballPredictor:
         gbm: Gbm1X2Model | None = None,
         calibrator: IsotonicCalibrator | PlattCalibrator | None = None,
         ensemble: EnsembleFootballModel | None = None,
+        corners_cards: CornersCardsModel | None = None,
         version: str = "v0",
     ) -> None:
         self.poisson = poisson or PoissonFootballModel()
@@ -54,6 +60,7 @@ class FootballPredictor:
             calibrator or IsotonicCalibrator()
         )
         self.ensemble = ensemble or EnsembleFootballModel(weights=(0.55, 0.45))
+        self.corners_cards = corners_cards or CornersCardsModel()
         self.version = version
 
     # ------------------------------------------------------------------
@@ -112,6 +119,21 @@ class FootballPredictor:
                 )
             )
 
+        for line in DEFAULT_CORNER_LINES:
+            p_over = self.corners_cards.prob_corners_over(feats, line)
+            markets.append(
+                MarketProbabilities("corners_over_under", "over", line, p_over)
+            )
+            markets.append(
+                MarketProbabilities("corners_over_under", "under", line, 1.0 - p_over)
+            )
+        for line in DEFAULT_CARD_LINES:
+            p_over = self.corners_cards.prob_cards_over(feats, line)
+            markets.append(MarketProbabilities("cards_over_under", "over", line, p_over))
+            markets.append(
+                MarketProbabilities("cards_over_under", "under", line, 1.0 - p_over)
+            )
+
         top_prob = float(max(blended))
         second_prob = float(sorted(blended, reverse=True)[1])
         confidence = max(0.0, min(1.0, top_prob - 0.5 * second_prob + 0.25))
@@ -153,6 +175,7 @@ class FootballPredictor:
             "calibrator_kind": self.calibrator.kind if self.calibrator.fitted else None,
             "calibrator": self.calibrator._regs if self.calibrator.fitted else None,
             "ensemble_weights": list(self.ensemble.weights),
+            "corners_cards": self.corners_cards.state(),
         }
         joblib.dump(bundle, path)
         return path
@@ -178,11 +201,18 @@ class FootballPredictor:
         ensemble = EnsembleFootballModel(
             weights=tuple(bundle.get("ensemble_weights", (0.55, 0.45)))
         )
+        corners_cards_state = bundle.get("corners_cards")
+        corners_cards = (
+            CornersCardsModel.from_state(corners_cards_state)
+            if corners_cards_state
+            else CornersCardsModel()
+        )
         return cls(
             poisson=poisson,
             gbm=gbm,
             calibrator=calibrator,
             ensemble=ensemble,
+            corners_cards=corners_cards,
             version=bundle.get("version", "v0"),
         )
 
