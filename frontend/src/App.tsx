@@ -5,6 +5,7 @@ import ValueBetsPage from '@/pages/ValueBets'
 import MatchDetailPage from '@/pages/MatchDetail'
 import BacktestPage from '@/pages/Backtest'
 import MonitoringPage from '@/pages/Monitoring'
+import RiskSettingsPage from '@/pages/RiskSettings'
 import About from '@/pages/About'
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
           <Route path="/matches/:id" element={<MatchDetailPage />} />
           <Route path="/backtest" element={<BacktestPage />} />
           <Route path="/monitoring" element={<MonitoringPage />} />
+          <Route path="/risk" element={<RiskSettingsPage />} />
           <Route path="/about" element={<About />} />
         </Routes>
       </main>

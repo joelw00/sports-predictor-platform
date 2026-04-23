@@ -28,6 +28,7 @@ dependencies = [
     "typer>=0.12",
     "tenacity>=9.0",
     "apscheduler>=3.10",
+    "shap>=0.46",
 ]
 
 [project.optional-dependencies]
