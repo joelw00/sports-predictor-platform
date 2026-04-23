@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import EventCard from '@/components/EventCard'
+import MonitoringBadges from '@/components/MonitoringBadges'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -45,6 +46,8 @@ export default function Dashboard() {
           Probabilistic forecasts across football leagues, ranked by expected value.
         </p>
       </div>
+
+      <MonitoringBadges />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard label="Events in window" value={stats.total} />
