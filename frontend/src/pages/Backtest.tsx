@@ -23,6 +23,7 @@ export default function BacktestPage() {
   const [strategy, setStrategy] = useState('flat')
   const [stake, setStake] = useState('1')
   const [mode, setMode] = useState<'walk_forward' | 'pretrained'>('walk_forward')
+  const [entryOddsStrategy, setEntryOddsStrategy] = useState<'closing' | 'opening'>('closing')
   const qc = useQueryClient()
 
   const { data: runs } = useQuery({ queryKey: ['backtests'], queryFn: api.backtests })
@@ -34,9 +35,10 @@ export default function BacktestPage() {
         market,
         strategy,
         mode,
+        entry_odds_strategy: entryOddsStrategy,
         stake: Number(stake),
         min_edge: Number(minEdge),
-        label: `${mode}/${sport}/${market}/${strategy}`,
+        label: `${mode}/${sport}/${market}/${strategy}/${entryOddsStrategy}`,
       } as unknown as Partial<BacktestResult>),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['backtests'] }),
   })
@@ -91,6 +93,18 @@ export default function BacktestPage() {
               </SelectContent>
             </Select>
           </Field>
+          <Field label="Entry odds">
+            <Select
+              value={entryOddsStrategy}
+              onValueChange={(v) => setEntryOddsStrategy(v as 'closing' | 'opening')}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="closing">Closing (legacy)</SelectItem>
+                <SelectItem value="opening">Opening (realistic, CLV)</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
           <Field label="Stake"><Input type="number" step="0.1" value={stake} onChange={(e) => setStake(e.target.value)} /></Field>
           <Field label="Min edge"><Input type="number" step="0.005" value={minEdge} onChange={(e) => setMinEdge(e.target.value)} /></Field>
           <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
@@ -115,6 +129,19 @@ export default function BacktestPage() {
             <Stat label="ROI" value={formatPercent(last.roi)} tone={last.roi >= 0 ? 'success' : 'danger'} />
             <Stat label="Yield" value={`${last.yield_pct.toFixed(2)}%`} />
             <Stat label="Max drawdown" value={last.max_drawdown.toFixed(2)} />
+          </CardContent>
+          <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3 border-t border-border">
+            <Stat
+              label="Avg CLV"
+              value={last.n_clv_tracked ? formatPercent(last.avg_clv) : '—'}
+              tone={last.n_clv_tracked && last.avg_clv >= 0 ? 'success' : last.n_clv_tracked ? 'danger' : undefined}
+            />
+            <Stat
+              label="CLV win rate"
+              value={last.n_clv_tracked ? formatPercent(last.clv_win_rate) : '—'}
+            />
+            <Stat label="CLV tracked bets" value={last.n_clv_tracked} />
+            <Stat label="Profit factor" value={last.profit_factor.toFixed(2)} />
           </CardContent>
           {last.breakdown && typeof last.breakdown === 'object' ? (
             <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3 border-t border-border">

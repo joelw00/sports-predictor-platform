@@ -120,7 +120,10 @@ export interface BacktestResult {
   yield_pct: number
   max_drawdown: number
   profit_factor: number
-  equity_curve: Array<{ date: string; bankroll: number; edge: number }>
+  avg_clv: number
+  clv_win_rate: number
+  n_clv_tracked: number
+  equity_curve: Array<{ date: string; bankroll: number; edge: number; clv?: number | null }>
   breakdown: Record<string, unknown>
 }
 
@@ -162,6 +165,14 @@ export const api = {
   health: () => http<HealthResponse>('/health'),
   monitoringLatest: (sport = 'football', market = '1x2') =>
     http<MonitoringSnapshot>(`/monitoring/latest?sport=${sport}&market=${market}`),
+  monitoringHistory: (sport = 'football', market = '1x2', limit = 60) =>
+    http<MonitoringSnapshot[]>(
+      `/monitoring/history?sport=${sport}&market=${market}&limit=${limit}`,
+    ),
+  runMonitoring: (sport = 'football', market = '1x2') =>
+    http<MonitoringSnapshot>(`/monitoring/run?sport=${sport}&market=${market}`, {
+      method: 'POST',
+    }),
   sports: () => http<Sport[]>('/sports'),
   events: (params: Record<string, string | undefined> = {}) => {
     const qs = new URLSearchParams()

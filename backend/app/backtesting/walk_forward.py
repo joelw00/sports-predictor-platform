@@ -16,13 +16,14 @@ import numpy as np
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.backtesting.engine import BacktestResult, _is_win
+from app.backtesting.engine import BacktestResult, EntryStrategy, _clv, _entry_quotes, _is_win
 from app.db import models as m
 from app.features.football import FootballFeatureBuilder
 from app.logging import get_logger
 from app.metrics.calibration import brier_score, log_loss_multi, reliability_bins
 from app.ml.trainer import FootballTrainer
-from app.value_bet.engine import ModelProbability, OddsQuote, ValueBetEngine
+from app.odds.history import closing_price_lookup
+from app.value_bet.engine import ModelProbability, ValueBetEngine
 
 log = get_logger(__name__)
 
@@ -48,6 +49,9 @@ class _BetState:
     total_return: float = 0.0
     wins_total: float = 0.0
     losses_total: float = 0.0
+    clv_total: float = 0.0
+    clv_pos: int = 0
+    clv_n: int = 0
     curve: list[dict] = field(default_factory=list)
     per_selection: dict[str, dict[str, float]] = field(default_factory=dict)
 
@@ -63,6 +67,7 @@ class WalkForwardBacktester:
         engine: ValueBetEngine | None = None,
         stake: float = 1.0,
         strategy: str = "flat",
+        entry_odds_strategy: EntryStrategy = "closing",
     ) -> None:
         if n_folds < 3:
             raise ValueError("n_folds must be >= 3 to leave a held-out window")
@@ -73,6 +78,7 @@ class WalkForwardBacktester:
         self.engine = engine or ValueBetEngine()
         self.stake = stake
         self.strategy = strategy
+        self.entry_odds_strategy = entry_odds_strategy
 
     # ------------------------------------------------------------------
     # Entry point
@@ -158,19 +164,17 @@ class WalkForwardBacktester:
                     for p in prediction.markets
                     if p.market == market
                 ]
-                odds_rows = (
-                    db.query(m.OddsSnapshot)
-                    .filter(
-                        m.OddsSnapshot.match_id == match.id,
-                        m.OddsSnapshot.market == market,
-                        m.OddsSnapshot.is_closing.is_(True),
-                    )
-                    .all()
+                quotes = _entry_quotes(
+                    db,
+                    match_id=match.id,
+                    market=market,
+                    strategy=self.entry_odds_strategy,
                 )
-                quotes = [
-                    OddsQuote(o.bookmaker, o.market, o.selection, o.line, o.price)
-                    for o in odds_rows
-                ]
+                closing_lookup = (
+                    closing_price_lookup(db, match_id=match.id, market=market)
+                    if self.entry_odds_strategy == "opening"
+                    else {}
+                )
                 bets = self.engine.evaluate(
                     match_id=match.id,
                     model_probs=probs,
@@ -179,7 +183,14 @@ class WalkForwardBacktester:
                 )
                 bets = self.engine.filter_and_rank(bets)
                 if bets:
-                    _apply_bet(state, match, bets[0], stake=self.stake, strategy=self.strategy)
+                    _apply_bet(
+                        state,
+                        match,
+                        bets[0],
+                        stake=self.stake,
+                        strategy=self.strategy,
+                        closing_lookup=closing_lookup,
+                    )
 
                 # Update builder state AFTER scoring, ready for the next match.
                 builder._update_with_result(db, match)  # noqa: SLF001
@@ -221,6 +232,7 @@ class WalkForwardBacktester:
             "mode": "walk_forward",
             "n_folds": self.n_folds,
             "min_train_folds": self.min_train_folds,
+            "entry_odds_strategy": self.entry_odds_strategy,
             "calibration": cal_metrics,
             "per_selection": {
                 k: {
@@ -234,6 +246,8 @@ class WalkForwardBacktester:
                 for k, v in state.per_selection.items()
             },
         }
+        avg_clv = state.clv_total / state.clv_n if state.clv_n else 0.0
+        clv_win_rate = state.clv_pos / state.clv_n if state.clv_n else 0.0
 
         first_test_idx = boundaries[self.min_train_folds][0]
         if finished and first_test_idx < len(finished):
@@ -261,6 +275,9 @@ class WalkForwardBacktester:
             yield_pct=round(yield_pct, 3),
             max_drawdown=round(state.drawdown, 4),
             profit_factor=round(profit_factor, 3),
+            avg_clv=round(avg_clv, 5),
+            clv_win_rate=round(clv_win_rate, 4),
+            n_clv_tracked=state.clv_n,
             equity_curve=state.curve,
             breakdown=breakdown,
         )
@@ -304,6 +321,7 @@ def _apply_bet(
     *,
     stake: float,
     strategy: str,
+    closing_lookup: dict[tuple[str, str, str, float | None], float] | None = None,
 ) -> None:
     used_stake = stake if strategy == "flat" else stake * bet.kelly_fraction
     if used_stake <= 0:
@@ -330,10 +348,21 @@ def _apply_bet(
     per["staked"] += used_stake
     per["return"] += ret if won else 0.0
     per["wins"] += 1 if won else 0
+    clv_value: float | None = None
+    if closing_lookup:
+        key = (bet.bookmaker, bet.market, bet.selection, bet.line)
+        closing_price = closing_lookup.get(key)
+        if closing_price is not None and closing_price > 0:
+            clv_value = _clv(bet.price, closing_price)
+            state.clv_total += clv_value
+            state.clv_n += 1
+            if clv_value > 0:
+                state.clv_pos += 1
     state.curve.append(
         {
             "date": match.kickoff.isoformat(),
             "bankroll": round(state.bankroll, 4),
             "edge": round(bet.edge, 4),
+            "clv": round(clv_value, 4) if clv_value is not None else None,
         }
     )

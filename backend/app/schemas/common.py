@@ -126,5 +126,8 @@ class BacktestResult(ORMModel):
     yield_pct: float
     max_drawdown: float
     profit_factor: float
+    avg_clv: float = 0.0
+    clv_win_rate: float = 0.0
+    n_clv_tracked: int = 0
     equity_curve: list
     breakdown: dict

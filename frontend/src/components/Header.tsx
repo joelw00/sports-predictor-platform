@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Activity, BarChart3, Home, Info, Trophy } from 'lucide-react'
+import { Activity, BarChart3, Gauge, Home, Info, Trophy } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -9,6 +9,7 @@ const NAV = [
   { to: '/', label: 'Dashboard', icon: Home },
   { to: '/value-bets', label: 'Value Bets', icon: Trophy },
   { to: '/backtest', label: 'Backtest', icon: BarChart3 },
+  { to: '/monitoring', label: 'Monitoring', icon: Gauge },
   { to: '/about', label: 'About', icon: Info },
 ]
 
