@@ -223,11 +223,10 @@ class FootballFeatureBuilder:
                 away.cards.append(ay + ar)
         # corners_against is independent of the team's own corners — record
         # it whenever the opponent's stat is available.
-        if home_stat is not None and away_stat is not None:
-            if away_stat.corners is not None:
-                home.corners_against.append(away_stat.corners)
-            if home_stat.corners is not None:
-                away.corners_against.append(home_stat.corners)
+        if away_stat is not None and away_stat.corners is not None:
+            home.corners_against.append(away_stat.corners)
+        if home_stat is not None and home_stat.corners is not None:
+            away.corners_against.append(home_stat.corners)
 
         key = self._h2h_key(match.home_team_id, match.away_team_id)
         h2h = self._h2h[key]
