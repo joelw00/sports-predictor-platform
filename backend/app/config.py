@@ -74,6 +74,16 @@ class Settings(BaseSettings):
     retrain_cron_hour: int = Field(default=4)
     retrain_cron_minute: int = Field(default=0)
 
+    # Monitoring
+    monitoring_enabled: bool = Field(
+        default=False,
+        description="When true the scheduler also runs a daily monitoring job.",
+    )
+    monitoring_cron_hour: int = Field(default=5)
+    monitoring_cron_minute: int = Field(default=0)
+    monitoring_window_days: int = Field(default=30)
+    monitoring_reference_days: int = Field(default=180)
+
     # Value bet engine
     value_bet_min_edge: float = Field(default=0.03)
     value_bet_min_confidence: float = Field(default=0.55)

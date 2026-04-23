@@ -124,8 +124,44 @@ export interface BacktestResult {
   breakdown: Record<string, unknown>
 }
 
+export interface MonitoringAlert {
+  code: string
+  severity: 'critical' | 'warning' | 'info'
+  message: string
+  meta?: Record<string, unknown>
+}
+
+export interface MonitoringDriftFeature {
+  feature: string
+  psi: number
+  ks_statistic: number
+  ks_pvalue: number
+  n_ref: number
+  n_cur: number
+}
+
+export interface MonitoringSnapshot {
+  id: number
+  sport: string
+  market: string
+  computed_at: string | null
+  model_version: string | null
+  n_recent_finished: number
+  n_predictions_evaluated: number
+  brier_live: number | null
+  log_loss_live: number | null
+  accuracy_live: number | null
+  brier_training: number | null
+  max_psi: number | null
+  drift: { features?: MonitoringDriftFeature[]; window_days?: number; reference_days?: number }
+  alerts: MonitoringAlert[]
+  meta: Record<string, unknown>
+}
+
 export const api = {
   health: () => http<HealthResponse>('/health'),
+  monitoringLatest: (sport = 'football', market = '1x2') =>
+    http<MonitoringSnapshot>(`/monitoring/latest?sport=${sport}&market=${market}`),
   sports: () => http<Sport[]>('/sports'),
   events: (params: Record<string, string | undefined> = {}) => {
     const qs = new URLSearchParams()

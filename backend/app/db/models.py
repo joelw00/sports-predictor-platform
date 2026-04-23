@@ -287,3 +287,36 @@ class IngestionRun(Base, TimestampMixin):
     ok: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     error: Mapped[str | None] = mapped_column(String(1024))
     meta: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# Monitoring snapshots (live calibration, drift, alerts)
+# ---------------------------------------------------------------------------
+
+
+class MonitoringSnapshot(Base, TimestampMixin):
+    """Periodic monitoring pass. One row per run per (sport, market).
+
+    Captures the live vs training Brier gap, feature drift (PSI + KS), and any
+    alerts fired (low data / high variance / stale model / calibration drift).
+    Daily cadence is enough for a football model — we mostly want to detect
+    when the upstream feed changes shape or the model degrades.
+    """
+
+    __tablename__ = "monitoring_snapshots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    sport_code: Mapped[str] = mapped_column(String(32), nullable=False)
+    market: Mapped[str] = mapped_column(String(32), nullable=False)
+    computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    model_version: Mapped[str | None] = mapped_column(String(64))
+    n_recent_finished: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    n_predictions_evaluated: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    brier_live: Mapped[float | None] = mapped_column(Float)
+    log_loss_live: Mapped[float | None] = mapped_column(Float)
+    accuracy_live: Mapped[float | None] = mapped_column(Float)
+    brier_training: Mapped[float | None] = mapped_column(Float)
+    max_psi: Mapped[float | None] = mapped_column(Float)
+    drift: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    alerts: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    meta: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
