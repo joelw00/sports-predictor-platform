@@ -44,10 +44,16 @@ _NUMERIC_FEATURES: tuple[str, ...] = (
     "away_goals_scored_avg",
     "away_goals_conceded_avg",
     "home_xg_for_avg",
+    "home_xg_against_avg",
     "away_xg_for_avg",
+    "away_xg_against_avg",
     "h2h_home_win_rate",
+    "h2h_draw_rate",
+    "h2h_goals_avg",
     "home_rest_days",
     "away_rest_days",
+    "home_shots_avg",
+    "away_shots_avg",
 )
 
 
@@ -176,9 +182,9 @@ def run_monitoring(
     model_trained_at = active.updated_at if active else None
     brier_training: float | None = None
     if active and isinstance(active.metrics, dict):
-        brier_training = active.metrics.get("brier_calibrated") or active.metrics.get(
-            "brier_raw"
-        )
+        # ``or`` would drop a legitimate 0.0 Brier; be explicit about None.
+        cal = active.metrics.get("brier_calibrated")
+        brier_training = cal if cal is not None else active.metrics.get("brier_raw")
 
     n_recent_finished = sum(1 for mt in matches_window if mt.kickoff >= live_cutoff)
 

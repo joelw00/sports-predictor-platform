@@ -93,6 +93,10 @@ def _run_daily_monitoring() -> dict[str, Any]:
                     reference_days=settings.monitoring_reference_days,
                 )
             except Exception as exc:  # noqa: BLE001
+                # A failed commit leaves the session in a "needs rollback"
+                # state; without this the remaining markets all raise
+                # PendingRollbackError and silently drop their snapshots.
+                db.rollback()
                 log.exception(
                     "scheduler.monitoring.failed",
                     market=market,
