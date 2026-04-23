@@ -237,6 +237,9 @@ class BacktestRun(Base, TimestampMixin):
     yield_pct: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     max_drawdown: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     profit_factor: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    avg_clv: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    clv_win_rate: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    n_clv_tracked: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     equity_curve: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
     breakdown: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
 

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.backtesting.engine import Backtester
+from app.backtesting.engine import Backtester, EntryStrategy
 from app.backtesting.walk_forward import WalkForwardBacktester
 from app.db import get_db
 from app.db import models as m
@@ -36,6 +36,15 @@ class BacktestRequest(BaseModel):
             "kept only for diagnostic comparison)."
         ),
     )
+    entry_odds_strategy: str = Field(
+        default="closing",
+        pattern="^(closing|opening)$",
+        description=(
+            "closing = bet at the closing line (legacy; CLV always 0). "
+            "opening = bet at the earliest pre-kickoff snapshot and report "
+            "CLV against the closing line."
+        ),
+    )
     n_folds: int = 6
     min_train_folds: int = 2
 
@@ -60,6 +69,9 @@ def run_backtest(
     db: Session = Depends(get_db),
 ) -> BacktestResult:
     engine = ValueBetEngine(min_edge=request.min_edge)
+    entry_strategy: EntryStrategy = (
+        "opening" if request.entry_odds_strategy == "opening" else "closing"
+    )
     if request.mode == "walk_forward":
         bt_wf = WalkForwardBacktester(
             n_folds=request.n_folds,
@@ -67,6 +79,7 @@ def run_backtest(
             engine=engine,
             stake=request.stake,
             strategy=request.strategy,
+            entry_odds_strategy=entry_strategy,
         )
         result = bt_wf.run(
             db,
@@ -81,7 +94,13 @@ def run_backtest(
             predictor = FootballPredictor.load(FootballPredictor.default_artifact_path())
         except Exception:
             predictor = FootballPredictor()
-        bt = Backtester(predictor, engine=engine, stake=request.stake, strategy=request.strategy)
+        bt = Backtester(
+            predictor,
+            engine=engine,
+            stake=request.stake,
+            strategy=request.strategy,
+            entry_odds_strategy=entry_strategy,
+        )
         result = bt.run(
             db,
             sport_code=request.sport,
@@ -107,6 +126,9 @@ def run_backtest(
         yield_pct=result.yield_pct,
         max_drawdown=result.max_drawdown,
         profit_factor=result.profit_factor,
+        avg_clv=result.avg_clv,
+        clv_win_rate=result.clv_win_rate,
+        n_clv_tracked=result.n_clv_tracked,
         equity_curve=result.equity_curve,
         breakdown=result.breakdown,
     )

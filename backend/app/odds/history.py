@@ -1,14 +1,17 @@
 """Helpers around the ``odds_snapshots`` table.
 
 A single match accumulates many rows as prices evolve (opening / mid /
-closing). The backtester and CLV analysis consume this history via two
+closing). The backtester and CLV analysis consume this history via three
 helpers:
 
 - :func:`mark_closing_odds` — flags the latest pre-kickoff snapshot per
   ``(match, bookmaker, market, selection, line)`` with ``is_closing=True``
   once the match has actually started.
-- :func:`match_history` — returns the captured price series for a single
-  match/market/selection/bookmaker tuple, ordered by ``captured_at``.
+- :func:`entry_snapshots` — returns the **earliest** pre-kickoff snapshot
+  per key for a given match/market, i.e. the "opening line" view used by
+  the backtester as the price the bettor would have taken.
+- :func:`closing_price_lookup` — returns a key-indexed map of closing
+  prices for a match/market, used to compute CLV for each bet.
 """
 
 from __future__ import annotations
@@ -23,6 +26,8 @@ from app.db import models as m
 from app.logging import get_logger
 
 log = get_logger(__name__)
+
+OddsKey = tuple[str, str, str, float | None]
 
 
 def mark_closing_odds(
@@ -84,4 +89,59 @@ def mark_closing_odds(
     return marked
 
 
-__all__ = ["mark_closing_odds"]
+def entry_snapshots(
+    db: Session,
+    *,
+    match_id: int,
+    market: str,
+) -> list[m.OddsSnapshot]:
+    """Return the earliest pre-kickoff snapshot per ``(book, selection, line)``.
+
+    This is the "opening line" view used by the backtester: for each distinct
+    offer we grab the first price ever captured before kickoff. If no
+    snapshot exists for a key the key is absent from the returned list.
+    """
+    match = db.get(m.Match, match_id)
+    if match is None:
+        return []
+    snaps = (
+        db.query(m.OddsSnapshot)
+        .filter(
+            m.OddsSnapshot.match_id == match_id,
+            m.OddsSnapshot.market == market,
+            m.OddsSnapshot.captured_at <= match.kickoff,
+        )
+        .order_by(m.OddsSnapshot.captured_at.asc())
+        .all()
+    )
+    earliest: dict[OddsKey, m.OddsSnapshot] = {}
+    for snap in snaps:
+        key = (snap.bookmaker, snap.market, snap.selection, snap.line)
+        if key not in earliest:
+            earliest[key] = snap
+    return list(earliest.values())
+
+
+def closing_price_lookup(
+    db: Session,
+    *,
+    match_id: int,
+    market: str,
+) -> dict[OddsKey, float]:
+    """Return ``(bookmaker, market, selection, line) -> closing_price`` for a match.
+
+    Rows are the ones flagged ``is_closing=True`` by :func:`mark_closing_odds`.
+    """
+    rows = (
+        db.query(m.OddsSnapshot)
+        .filter(
+            m.OddsSnapshot.match_id == match_id,
+            m.OddsSnapshot.market == market,
+            m.OddsSnapshot.is_closing.is_(True),
+        )
+        .all()
+    )
+    return {(r.bookmaker, r.market, r.selection, r.line): r.price for r in rows}
+
+
+__all__ = ["mark_closing_odds", "entry_snapshots", "closing_price_lookup", "OddsKey"]
