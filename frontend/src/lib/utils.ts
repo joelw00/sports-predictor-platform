@@ -42,6 +42,12 @@ export function marketLabel(market: string, selection: string, line: number | nu
     const code = (s: string) => (s === 'home' ? '1' : s === 'away' ? '2' : 'X')
     return `HT/FT ${code(ht)}/${code(ft)}`
   }
+  if (market === 'corners_over_under') {
+    return `Corners ${selection === 'over' ? 'Over' : 'Under'} ${line ?? ''}`.trim()
+  }
+  if (market === 'cards_over_under') {
+    return `Cards ${selection === 'over' ? 'Over' : 'Under'} ${line ?? ''}`.trim()
+  }
   return `${market} · ${selection}${line != null ? ` ${line}` : ''}`
 }
 
@@ -60,6 +66,10 @@ export function marketGroup(market: string): string {
       return 'Half-time / Full-time'
     case 'match_winner':
       return 'Match winner'
+    case 'corners_over_under':
+      return 'Corners (Over / Under)'
+    case 'cards_over_under':
+      return 'Cards (Over / Under)'
     default:
       return market
   }

@@ -30,6 +30,7 @@ from app.ml.calibration import (
     IsotonicCalibrator,
     PlattCalibrator,
 )
+from app.ml.corners_cards import CornersCardsModel
 from app.ml.gbm import FEATURE_COLUMNS, Gbm1X2Model
 from app.ml.poisson import PoissonFootballModel
 from app.ml.predictor import FootballPredictor, _features_to_row
@@ -168,6 +169,24 @@ class FootballTrainer:
 
         gbm = Gbm1X2Model().fit(df, y)
 
+        # ---- Corners / cards totals model ---------------------------
+        corners_totals: list[int | None] = []
+        cards_totals: list[int | None] = []
+        for match in finished:
+            stats = db.query(m.MatchStat).filter_by(match_id=match.id).all()
+            c_total = None
+            k_total = None
+            for s in stats:
+                if s.corners is not None:
+                    c_total = (c_total or 0) + int(s.corners)
+                if s.yellow_cards is not None or s.red_cards is not None:
+                    k_total = (
+                        (k_total or 0) + int(s.yellow_cards or 0) + int(s.red_cards or 0)
+                    )
+            corners_totals.append(c_total)
+            cards_totals.append(k_total)
+        corners_cards = CornersCardsModel().fit(feats_list, corners_totals, cards_totals)
+
         # ---- Calibration on rolling out-of-fold predictions ------------
         calibrator: IsotonicCalibrator | PlattCalibrator = IsotonicCalibrator()
         calibrator_kind = "none"
@@ -239,6 +258,7 @@ class FootballTrainer:
             poisson=poisson,
             gbm=gbm,
             calibrator=calibrator,
+            corners_cards=corners_cards,
             version=self.version,
         )
         report = TrainingReport(

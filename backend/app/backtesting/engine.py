@@ -293,4 +293,26 @@ def _is_win(match: m.Match, market: str, selection: str, line: float | None) -> 
         except ValueError:
             return False
         return match.home_score == want_h and match.away_score == want_a
+    if market in ("corners_over_under", "cards_over_under") and line is not None:
+        stat_total: int | None = _stat_total(
+            match, "corners" if market == "corners_over_under" else "cards"
+        )
+        if stat_total is None:
+            return False
+        if selection == "over":
+            return stat_total > line
+        if selection == "under":
+            return stat_total < line
     return False
+
+
+def _stat_total(match: m.Match, kind: str) -> int | None:
+    total: int | None = None
+    for s in match.stats or []:
+        if kind == "corners":
+            if s.corners is not None:
+                total = (total or 0) + int(s.corners)
+        else:
+            if s.yellow_cards is not None or s.red_cards is not None:
+                total = (total or 0) + int(s.yellow_cards or 0) + int(s.red_cards or 0)
+    return total

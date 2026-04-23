@@ -45,6 +45,12 @@ class MatchFeatures:
     away_rest_days: float
     home_shots_avg: float
     away_shots_avg: float
+    home_corners_for_avg: float
+    home_corners_against_avg: float
+    away_corners_for_avg: float
+    away_corners_against_avg: float
+    home_cards_avg: float
+    away_cards_avg: float
 
     def as_dict(self) -> dict[str, float | int | str | datetime | None]:
         return asdict(self)
@@ -60,6 +66,9 @@ class _TeamState:
     xg_for: deque = field(default_factory=lambda: deque(maxlen=10))
     xg_against: deque = field(default_factory=lambda: deque(maxlen=10))
     shots: deque = field(default_factory=lambda: deque(maxlen=10))
+    corners_for: deque = field(default_factory=lambda: deque(maxlen=10))
+    corners_against: deque = field(default_factory=lambda: deque(maxlen=10))
+    cards: deque = field(default_factory=lambda: deque(maxlen=10))
 
 
 @dataclass
@@ -148,6 +157,12 @@ class FootballFeatureBuilder:
             away_rest_days=_rest_days(away.last_match_at, match.kickoff),
             home_shots_avg=_mean(home.shots, default=12.0),
             away_shots_avg=_mean(away.shots, default=10.0),
+            home_corners_for_avg=_mean(home.corners_for, default=5.0),
+            home_corners_against_avg=_mean(home.corners_against, default=4.5),
+            away_corners_for_avg=_mean(away.corners_for, default=4.5),
+            away_corners_against_avg=_mean(away.corners_against, default=5.0),
+            home_cards_avg=_mean(home.cards, default=2.2),
+            away_cards_avg=_mean(away.cards, default=2.3),
         )
 
     def _update_with_result(self, db: Session, match: m.Match) -> None:
@@ -177,21 +192,41 @@ class FootballFeatureBuilder:
         away.last_match_at = match.kickoff
 
         stats = db.query(m.MatchStat).filter_by(match_id=match.id).all()
-        for s in stats:
-            if s.team_id == match.home_team_id:
-                if s.xg is not None:
-                    home.xg_for.append(s.xg)
-                if s.xga is not None:
-                    home.xg_against.append(s.xga)
-                if s.shots is not None:
-                    home.shots.append(s.shots)
-            else:
-                if s.xg is not None:
-                    away.xg_for.append(s.xg)
-                if s.xga is not None:
-                    away.xg_against.append(s.xga)
-                if s.shots is not None:
-                    away.shots.append(s.shots)
+        stat_by_team: dict[int, m.MatchStat] = {s.team_id: s for s in stats}
+        home_stat = stat_by_team.get(match.home_team_id)
+        away_stat = stat_by_team.get(match.away_team_id)
+        if home_stat is not None:
+            if home_stat.xg is not None:
+                home.xg_for.append(home_stat.xg)
+            if home_stat.xga is not None:
+                home.xg_against.append(home_stat.xga)
+            if home_stat.shots is not None:
+                home.shots.append(home_stat.shots)
+            if home_stat.corners is not None:
+                home.corners_for.append(home_stat.corners)
+            hy = home_stat.yellow_cards or 0
+            hr = home_stat.red_cards or 0
+            if home_stat.yellow_cards is not None or home_stat.red_cards is not None:
+                home.cards.append(hy + hr)
+        if away_stat is not None:
+            if away_stat.xg is not None:
+                away.xg_for.append(away_stat.xg)
+            if away_stat.xga is not None:
+                away.xg_against.append(away_stat.xga)
+            if away_stat.shots is not None:
+                away.shots.append(away_stat.shots)
+            if away_stat.corners is not None:
+                away.corners_for.append(away_stat.corners)
+            ay = away_stat.yellow_cards or 0
+            ar = away_stat.red_cards or 0
+            if away_stat.yellow_cards is not None or away_stat.red_cards is not None:
+                away.cards.append(ay + ar)
+        # corners_against is independent of the team's own corners — record
+        # it whenever the opponent's stat is available.
+        if away_stat is not None and away_stat.corners is not None:
+            home.corners_against.append(away_stat.corners)
+        if home_stat is not None and home_stat.corners is not None:
+            away.corners_against.append(home_stat.corners)
 
         key = self._h2h_key(match.home_team_id, match.away_team_id)
         h2h = self._h2h[key]
