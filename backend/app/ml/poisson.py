@@ -50,6 +50,58 @@ class ScoreDistribution:
                 p += mat[h, a]
         return float(p / mat.sum())
 
+    def top_scorelines(self, k: int = 8) -> list[tuple[int, int, float]]:
+        """Return the ``k`` most likely (home_goals, away_goals, probability) scorelines."""
+        mat = self.matrix / self.matrix.sum()
+        n = mat.shape[0]
+        entries = [(h, a, float(mat[h, a])) for h in range(n) for a in range(n)]
+        entries.sort(key=lambda t: t[2], reverse=True)
+        return entries[:k]
+
+    def prob_htft(self) -> dict[tuple[str, str], float]:
+        """Probabilities for the 9 Half-Time / Full-Time combinations.
+
+        Uses the common simplifying assumption that the two halves are
+        independent Poisson draws with rate ``lambda / 2`` each. The resulting
+        full-time distribution is consistent with :attr:`matrix` because
+        ``Pois(l/2) + Pois(l/2) ~ Pois(l)``.
+        """
+        max_goals = self.matrix.shape[0] - 1
+        lam_h_half = self.lambda_home / 2.0
+        lam_a_half = self.lambda_away / 2.0
+        half = np.zeros((max_goals + 1, max_goals + 1), dtype=float)
+        for h in range(max_goals + 1):
+            for a in range(max_goals + 1):
+                half[h, a] = _poisson_pmf(h, lam_h_half) * _poisson_pmf(a, lam_a_half)
+        half /= half.sum()
+
+        def sign(h: int, a: int) -> str:
+            if h > a:
+                return "home"
+            if h < a:
+                return "away"
+            return "draw"
+
+        probs: dict[tuple[str, str], float] = {
+            (ht, ft): 0.0
+            for ht in ("home", "draw", "away")
+            for ft in ("home", "draw", "away")
+        }
+        for h1 in range(max_goals + 1):
+            for a1 in range(max_goals + 1):
+                p1 = half[h1, a1]
+                if p1 == 0.0:
+                    continue
+                for h2 in range(max_goals + 1 - h1):
+                    for a2 in range(max_goals + 1 - a1):
+                        p = p1 * half[h2, a2]
+                        probs[(sign(h1, a1), sign(h1 + h2, a1 + a2))] += p
+        total = sum(probs.values())
+        if total > 0:
+            for k in list(probs.keys()):
+                probs[k] /= total
+        return probs
+
 
 def _poisson_pmf(k: int, lam: float) -> float:
     return (lam**k) * exp(-lam) / factorial(k)

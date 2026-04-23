@@ -34,5 +34,33 @@ export function marketLabel(market: string, selection: string, line: number | nu
   if (market === 'match_winner') {
     return selection === 'home' ? 'Player 1' : 'Player 2'
   }
+  if (market === 'correct_score') {
+    return `CS ${selection}`
+  }
+  if (market === 'htft') {
+    const [ht, ft] = selection.split('_')
+    const code = (s: string) => (s === 'home' ? '1' : s === 'away' ? '2' : 'X')
+    return `HT/FT ${code(ht)}/${code(ft)}`
+  }
   return `${market} · ${selection}${line != null ? ` ${line}` : ''}`
+}
+
+export function marketGroup(market: string): string {
+  switch (market) {
+    case '1x2':
+    case 'double_chance':
+      return 'Match result'
+    case 'over_under':
+      return 'Goals (Over / Under)'
+    case 'btts':
+      return 'Both teams to score'
+    case 'correct_score':
+      return 'Correct score'
+    case 'htft':
+      return 'Half-time / Full-time'
+    case 'match_winner':
+      return 'Match winner'
+    default:
+      return market
+  }
 }

@@ -279,4 +279,18 @@ def _is_win(match: m.Match, market: str, selection: str, line: float | None) -> 
     if market == "btts":
         both = match.home_score > 0 and match.away_score > 0
         return (selection == "yes" and both) or (selection == "no" and not both)
+    if market == "double_chance":
+        h, a = match.home_score, match.away_score
+        if selection == "1x":
+            return h >= a
+        if selection == "12":
+            return h != a
+        if selection == "x2":
+            return h <= a
+    if market == "correct_score":
+        try:
+            want_h, want_a = (int(p) for p in selection.split("-"))
+        except ValueError:
+            return False
+        return match.home_score == want_h and match.away_score == want_a
     return False
