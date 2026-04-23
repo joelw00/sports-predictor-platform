@@ -6,7 +6,7 @@ import { api } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { formatEdge, formatOdds, formatPercent, marketLabel } from '@/lib/utils'
+import { formatEdge, formatOdds, formatPercent, marketGroup, marketLabel } from '@/lib/utils'
 
 export default function MatchDetailPage() {
   const { id } = useParams()
@@ -60,33 +60,61 @@ export default function MatchDetailPage() {
         <Card>
           <CardHeader><CardTitle>Model predictions</CardTitle></CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead className="text-xs uppercase text-muted-foreground">
-                <tr>
-                  <th className="text-left px-4 py-2">Market</th>
-                  <th className="text-right px-4 py-2">Probability</th>
-                  <th className="text-right px-4 py-2">Confidence</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.predictions.map((p, i) => (
-                  <tr key={i} className="border-t border-border">
-                    <td className="px-4 py-2">{marketLabel(p.market, p.selection, p.line)}</td>
-                    <td className="px-4 py-2 text-right tabular-nums">{formatPercent(p.probability)}</td>
-                    <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">
-                      {formatPercent(p.confidence)}
-                    </td>
-                  </tr>
-                ))}
-                {data.predictions.length === 0 && (
-                  <tr>
-                    <td colSpan={3} className="px-4 py-4 text-center text-muted-foreground italic">
-                      no predictions generated yet
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+            {data.predictions.length === 0 ? (
+              <div className="px-4 py-4 text-sm italic text-muted-foreground">
+                no predictions generated yet
+              </div>
+            ) : (
+              (() => {
+                const groups = new Map<string, typeof data.predictions>()
+                for (const p of data.predictions) {
+                  const key = marketGroup(p.market)
+                  const arr = groups.get(key) ?? []
+                  arr.push(p)
+                  groups.set(key, arr)
+                }
+                return (
+                  <div className="divide-y divide-border">
+                    {Array.from(groups.entries()).map(([group, preds]) => (
+                      <details
+                        key={group}
+                        className="group"
+                        open={group === 'Match result' || group === 'Goals (Over / Under)'}
+                      >
+                        <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium hover:bg-secondary/40">
+                          <span>{group}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {preds.length} {preds.length === 1 ? 'selection' : 'selections'}
+                          </span>
+                        </summary>
+                        <table className="w-full text-sm">
+                          <thead className="text-xs uppercase text-muted-foreground">
+                            <tr>
+                              <th className="text-left px-4 py-2">Selection</th>
+                              <th className="text-right px-4 py-2">Probability</th>
+                              <th className="text-right px-4 py-2">Confidence</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {preds.map((p, i) => (
+                              <tr key={`${p.market}-${p.selection}-${p.line ?? ''}-${i}`} className="border-t border-border">
+                                <td className="px-4 py-2">{marketLabel(p.market, p.selection, p.line)}</td>
+                                <td className="px-4 py-2 text-right tabular-nums">
+                                  {formatPercent(p.probability)}
+                                </td>
+                                <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">
+                                  {formatPercent(p.confidence)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </details>
+                    ))}
+                  </div>
+                )
+              })()
+            )}
           </CardContent>
         </Card>
 

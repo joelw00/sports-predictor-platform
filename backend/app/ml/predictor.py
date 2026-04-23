@@ -92,6 +92,26 @@ class FootballPredictor:
         markets.append(MarketProbabilities("btts", "yes", None, p_btts))
         markets.append(MarketProbabilities("btts", "no", None, 1 - p_btts))
 
+        for h_goals, a_goals, prob in score_dist.top_scorelines(k=8):
+            markets.append(
+                MarketProbabilities(
+                    market="correct_score",
+                    selection=f"{h_goals}-{a_goals}",
+                    line=None,
+                    probability=float(prob),
+                )
+            )
+
+        for (ht, ft), prob in score_dist.prob_htft().items():
+            markets.append(
+                MarketProbabilities(
+                    market="htft",
+                    selection=f"{ht}_{ft}",
+                    line=None,
+                    probability=float(prob),
+                )
+            )
+
         top_prob = float(max(blended))
         second_prob = float(sorted(blended, reverse=True)[1])
         confidence = max(0.0, min(1.0, top_prob - 0.5 * second_prob + 0.25))
